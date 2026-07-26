@@ -33,6 +33,10 @@ namespace cardboard {
 
 namespace {
 
+// Package identity handed to SensorService so our registrations are attributed to
+// the app and get foreground sampling rates.
+constexpr const char* kSensorPackageName = "com.wristcursor.app";
+
 // Creates an Android sensor event queue for the current thread.
 static ASensorEventQueue* CreateSensorQueue(ASensorManager* sensor_manager) {
   ALooper* event_looper = ALooper_forThread();
@@ -126,7 +130,10 @@ struct DeviceAccelerometerSensor::SensorInfo {
 
 DeviceAccelerometerSensor::DeviceAccelerometerSensor()
     : sensor_info_(new SensorInfo()) {
-  sensor_info_->sensor_manager = ASensorManager_getInstance();
+  // See the matching comment in device_gyroscope_sensor.cc: getInstance() loses the
+  // package identity and gets the app throttled to background sensor rates.
+  sensor_info_->sensor_manager =
+      ASensorManager_getInstanceForPackage(kSensorPackageName);
   sensor_info_->sensor = InitSensor(sensor_info_->sensor_manager);
   if (!sensor_info_->sensor) {
     return;

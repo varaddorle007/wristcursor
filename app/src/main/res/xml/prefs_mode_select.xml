@@ -19,26 +19,31 @@
     <Preference
         android:key="pref_inputMouse"
         android:title="@string/pref_inputMouse"
+        android:summary="@string/pref_inputMouse_summary"
         android:icon="@drawable/ic_ms_mouse"
         android:persistent="false" />
     <Preference
         android:key="pref_inputTouchpad"
         android:title="@string/pref_inputTouchpad"
+        android:summary="@string/pref_inputTouchpad_summary"
         android:icon="@drawable/ic_ms_touchpad"
         android:persistent="false" />
     <Preference
         android:key="pref_inputCursor"
         android:title="@string/pref_inputCursor"
+        android:summary="@string/pref_inputCursor_summary"
         android:icon="@drawable/ic_ms_keypad"
         android:persistent="false" />
     <Preference
         android:key="pref_inputKeyboard"
         android:title="@string/pref_inputKeyboard"
+        android:summary="@string/pref_inputKeyboard_summary"
         android:icon="@drawable/ic_ms_keyboard"
         android:persistent="false" />
     <Preference
-        android:fragment="com.ginkage.wearmouse.ui.input.InputSettingsFragment"
+        android:fragment="com.wristcursor.app.ui.input.InputSettingsFragment"
         android:title="@string/pref_inputSettings"
+        android:summary="@string/pref_inputSettings_summary"
         android:icon="@drawable/ic_bt_ellipsis"
         android:persistent="false" />
 </PreferenceScreen>

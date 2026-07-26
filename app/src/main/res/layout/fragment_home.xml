@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/black">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="24dp"
+        android:paddingBottom="24dp"
+        android:paddingStart="30dp"
+        android:paddingEnd="30dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/app_name"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <!-- 1. Connect device -->
+        <include
+            android:id="@+id/row_find"
+            layout="@layout/row_compact_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- 2. Rate -->
+        <include
+            android:id="@+id/row_review"
+            layout="@layout/row_compact_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- 3. About -->
+        <include
+            android:id="@+id/row_about"
+            layout="@layout/row_compact_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+</ScrollView>

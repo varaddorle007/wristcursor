@@ -16,6 +16,11 @@
   -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:title="@string/pref_inputSettings">
+    <Preference
+        android:key="pref_settingControlMode"
+        android:title="@string/pref_settingControlMode"
+        android:summary="@string/pref_settingControlMode_summary"
+        android:persistent="false" />
     <SwitchPreference
         android:key="pref_settingCalibration"
         android:title="@string/pref_settingCalibration"
@@ -40,6 +45,21 @@
         android:key="pref_settingStayConnected"
         android:title="@string/pref_settingStayConnected"
         android:summary="@string/pref_settingStayConnected_summary"
+        android:persistent="false"/>
+    <SwitchPreference
+        android:key="pref_settingGesturePinch"
+        android:title="@string/pref_settingGesturePinch"
+        android:summary="@string/pref_settingGesturePinch_summary"
+        android:persistent="false"/>
+    <SwitchPreference
+        android:key="pref_settingGestureShakeBack"
+        android:title="@string/pref_settingGestureShakeBack"
+        android:summary="@string/pref_settingGestureShakeBack_summary"
+        android:persistent="false"/>
+    <SwitchPreference
+        android:key="pref_settingShowClickButtons"
+        android:title="@string/pref_settingShowClickButtons"
+        android:summary="@string/pref_settingShowClickButtons_summary"
         android:persistent="false"/>
     <Preference
         android:key="pref_settingReplayTutorials"

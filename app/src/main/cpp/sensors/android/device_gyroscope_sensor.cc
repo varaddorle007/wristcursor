@@ -59,6 +59,10 @@ static ASensorEventQueue* CreateSensorQueue(ASensorManager* sensor_manager) {
 // the behavior of this algorithm and it will affect the gyro while moving,
 // it is safer to initialize to the uncalibrated one and handle the gyro bias
 // estimation in Cardboard SDK.
+// Package identity handed to SensorService so our registrations are attributed to
+// the app and get foreground sampling rates.
+constexpr const char* kSensorPackageName = "com.wristcursor.app";
+
 enum PrivateSensors {
   // This is not defined in the native public sensors API, but it is in java.
   // If we define this here and it gets defined later in NDK this should
@@ -172,7 +176,13 @@ bool ParseGyroEvent(const ASensorEvent& event, GyroscopeData* sample) {
 
 DeviceGyroscopeSensor::DeviceGyroscopeSensor()
     : sensor_info_(new SensorInfo()) {
-  sensor_info_->sensor_manager = ASensorManager_getInstance();
+  // MUST be getInstanceForPackage, not getInstance(). The deprecated getInstance()
+  // registers with no package identity, so SensorService cannot tell that the
+  // requesting app is in the foreground and applies background rate throttling —
+  // measured on the watch as 160000us (6.25 Hz) instead of the requested rate,
+  // which made the pointer feel hopelessly laggy no matter what the HID layer did.
+  sensor_info_->sensor_manager =
+      ASensorManager_getInstanceForPackage(kSensorPackageName);
   sensor_info_->sensor = InitSensor(sensor_info_->sensor_manager);
   if (!sensor_info_->sensor) {
     return;

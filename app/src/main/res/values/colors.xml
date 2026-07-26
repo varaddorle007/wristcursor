@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- WristCursor palette — dark charcoal + mint accent (easy to read on round OLED) -->
+    <color name="black">#0B0F14</color>
+    <color name="surface">#151B24</color>
+    <color name="grey">#2A3340</color>
+    <color name="dark_grey">#0E131A</color>
+    <color name="text_primary">#F2F5F8</color>
+    <color name="text_secondary">#9AA7B5</color>
+    <color name="accent">#3DDC97</color>
+    <color name="accent_pressed">#2BB87C</color>
+    <color name="accent_soft">#1A3DDC97</color>
+    <color name="accent_soft_stroke">#553DDC97</color>
+    <color name="danger">#FF6B6B</color>
+    <color name="btn_colored_background_material">#3DDC97</color>
+    <!-- WowMouse-style arm/pause states -->
+    <color name="wow_teal">#2EC4B6</color>
+    <color name="wow_lime">#C8FF00</color>
+    <color name="wow_glow_paused">#552EC4B6</color>
+    <color name="wow_glow_armed">#66C8FF00</color>
+</resources>

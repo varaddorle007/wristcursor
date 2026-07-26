@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WristCursor — Watch UI Preview</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --surface: #151b24;
+      --grey: #2a3340;
+      --text: #f2f5f8;
+      --muted: #9aa7b5;
+      --accent: #3ddc97;
+      --accent-pressed: #2bb87c;
+      --danger: #ff6b6b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse at 20% 0%, #1a2433 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, #12201a 0%, transparent 45%),
+        #070a0e;
+      color: var(--text);
+      display: grid;
+      grid-template-columns: 240px minmax(320px, 1fr) 340px;
+      gap: 0;
+    }
+
+    aside {
+      padding: 28px 20px;
+      border-right: 1px solid #1c2430;
+      background: rgba(11, 15, 20, 0.85);
+    }
+
+    aside h1 {
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    aside p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin-bottom: 24px;
+    }
+
+    .nav button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 6px;
+    }
+
+    .nav button:hover { background: var(--surface); color: var(--text); }
+    .nav button.active {
+      background: var(--surface);
+      border-color: #2a3d34;
+      color: var(--accent);
+    }
+
+    .note {
+      margin-top: 28px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #121820;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      gap: 20px;
+    }
+
+    .watch-bezel {
+      width: 340px;
+      height: 340px;
+      border-radius: 50%;
+      padding: 14px;
+      background: linear-gradient(145deg, #2a3038, #0e1116);
+      box-shadow:
+        0 30px 60px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .watch-face {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--bg);
+      overflow: hidden;
+      position: relative;
+      border: 2px solid #1a1f26;
+    }
+
+    .screen {
+      display: none;
+      height: 100%;
+      padding: 42px 28px 36px;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .screen::-webkit-scrollbar { display: none; }
+    .screen.active { display: block; }
+
+    .title {
+      text-align: center;
+      font-size: 15px;
+      font-weight: 650;
+      margin-bottom: 14px;
+      letter-spacing: -0.01em;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .row:hover { background: var(--surface); }
+
+    .icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1e6fd9;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 14px;
+      color: white;
+    }
+    .icon.mint { background: var(--accent); color: #0b0f14; }
+    .icon.grey { background: var(--grey); }
+
+    .row .label { font-size: 14px; font-weight: 550; line-height: 1.2; }
+    .row .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Onboarding */
+    .ob {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 8px;
+      padding-top: 8px;
+    }
+    .ob .logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      background: #0b0f14;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .ob h2 { font-size: 18px; }
+    .ob .tag { color: var(--accent); font-size: 12px; }
+    .ob .msg {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      white-space: pre-line;
+      margin: 6px 0 10px;
+    }
+    .ob .next {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #0b0f14;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    /* Mode list */
+    .mode-title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      line-height: 1.25;
+      padding: 0 8px;
+    }
+
+    /* Air mouse */
+    .mouse {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      grid-template-rows: 28px 1fr;
+      gap: 6px;
+      padding: 36px 26px 40px;
+    }
+    .mouse .pointer {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--accent);
+      font-size: 14px;
+    }
+    .btn-l, .btn-r {
+      border: none;
+      font-size: 42px;
+      font-weight: 700;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    .btn-l {
+      background: var(--accent);
+      color: #0b0f14;
+      border-radius: 40px 8px 8px 40px;
+    }
+    .btn-r {
+      background: var(--grey);
+      color: var(--text);
+      border-radius: 8px 40px 40px 8px;
+    }
+
+    .caption {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      max-width: 360px;
+    }
+
+    .caption strong { color: var(--accent); }
+
+    .warn {
+      margin: 8px 4px 12px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #1a2230;
+      border: 1px solid #2a3d34;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      text-align: center;
+    }
+    .warn b { color: var(--accent); display: block; margin-bottom: 4px; }
+
+    .guide {
+      padding: 28px 22px;
+      border-left: 1px solid #1c2430;
+      background: rgba(11, 15, 20, 0.9);
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    .guide h2 {
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+    .guide .lead {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin-bottom: 18px;
+    }
+    .guide h3 {
+      font-size: 13px;
+      color: var(--accent);
+      margin: 16px 0 6px;
+      font-weight: 650;
+    }
+    .guide ol, .guide ul {
+      padding-left: 18px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .guide li { margin-bottom: 4px; }
+    .guide .tip {
+      margin-top: 16px;
+      padding: 10px 12px;
+      background: #121820;
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>WristCursor</h1>
+    <p>UI preview only — this site cannot find real computers. Use the watch app for pairing.</p>
+    <nav class="nav" id="nav">
+      <button data-screen="home" class="active">1. Home</button>
+      <button data-screen="help">2. How to connect</button>
+      <button data-screen="find">3. Find computer</button>
+      <button data-screen="modes">4. Choose mode</button>
+      <button data-screen="mouse">5. Air mouse</button>
+      <button data-screen="welcome">6. Welcome</button>
+      <button data-screen="about">7. About</button>
+    </nav>
+    <div class="note">
+      Real pairing happens on the <b style="color:var(--accent)">watch + Mac/PC Bluetooth</b>, not on this webpage.
+    </div>
+  </aside>
+
+  <main>
+    <div class="watch-bezel">
+      <div class="watch-face">
+
+        <!-- HOME -->
+        <section class="screen active" id="home">
+          <div class="title">WristCursor</div>
+          <div class="row" onclick="show('find')">
+            <div class="icon">🔍</div>
+            <div>
+              <div class="label">Find computer</div>
+              <div class="sub">Pair a laptop, PC, or phone</div>
+            </div>
+          </div>
+          <div class="row" onclick="show('help')">
+            <div class="icon mint">?</div>
+            <div>
+              <div class="label">How to connect</div>
+              <div class="sub">Mac, Windows &amp; phone steps</div>
+            </div>
+          </div>
+          <div class="row" onclick="show('about')">
+            <div class="icon grey">ℹ</div>
+            <div>
+              <div class="label">About</div>
+              <div class="sub">App info</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- HELP (watch-sized summary) -->
+        <section class="screen" id="help">
+          <div class="title">How to connect</div>
+          <div class="warn">
+            <b>Best method</b>
+            Keep Find computer open on the watch, then pair the watch from your Mac/PC Bluetooth settings.
+          </div>
+          <div class="row"><div class="icon mint">1</div><div><div class="label">Watch → Find computer</div><div class="sub">Allow Location if asked</div></div></div>
+          <div class="row"><div class="icon mint">2</div><div><div class="label">Mac/PC → Bluetooth ON</div><div class="sub">Add / search for your watch</div></div></div>
+          <div class="row"><div class="icon mint">3</div><div><div class="label">Watch → Connect</div><div class="sub">Then pick Air mouse</div></div></div>
+        </section>
+
+        <!-- FIND -->
+        <section class="screen" id="find">
+          <div class="title">Find computer</div>
+          <div class="warn">
+            <b>Keep this screen open</b>
+            On Mac/PC: turn Bluetooth ON and search for this watch.
+            If the list is empty, tap Scan again.
+          </div>
+          <div class="row">
+            <div class="icon mint">↻</div>
+            <div>
+              <div class="label">Scan again</div>
+              <div class="sub">Tap if nothing shows up</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODES -->
+        <section class="screen" id="modes">
+          <div class="mode-title">How do you want to control?</div>
+          <div class="row" onclick="show('mouse')">
+            <div class="icon mint">🖱</div>
+            <div>
+              <div class="label">Air mouse</div>
+              <div class="sub">Move your wrist to point</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="icon">✋</div>
+            <div>
+              <div class="label">Touchpad</div>
+              <div class="sub">Swipe on the watch screen</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="icon">↕</div>
+            <div>
+              <div class="label">Arrow keys</div>
+              <div class="sub">Tap edges to move</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="icon">⌨</div>
+            <div>
+              <div class="label">Type text</div>
+              <div class="sub">Keyboard or voice</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MOUSE -->
+        <section class="screen" id="mouse" style="padding:0">
+          <div class="mouse">
+            <div class="pointer">▲</div>
+            <button class="btn-l">L</button>
+            <button class="btn-r">R</button>
+          </div>
+        </section>
+
+        <!-- WELCOME -->
+        <section class="screen" id="welcome">
+          <div class="ob">
+            <div class="logo">↖</div>
+            <h2>WristCursor</h2>
+            <div class="msg">1. Find computer on watch
+2. Pair watch from Mac/PC Bluetooth
+3. Connect → Air mouse</div>
+            <button class="next" onclick="show('home')">→</button>
+          </div>
+        </section>
+
+        <!-- ABOUT -->
+        <section class="screen" id="about">
+          <div class="ob">
+            <div class="logo">↖</div>
+            <h2>WristCursor</h2>
+            <div class="tag">Watch → mouse for your computer</div>
+            <div class="msg">1.27</div>
+            <button class="next" style="width:auto;padding:0 18px;border-radius:20px;font-size:13px;font-weight:600">Licenses</button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+    <p class="caption">Round UI preview · Real connection = <strong>watch app</strong> + computer Bluetooth</p>
+  </main>
+
+  <aside class="guide">
+    <h2>Connect for real</h2>
+    <p class="lead">This website cannot find your computer. Do these steps on the Galaxy Watch + your device.</p>
+
+    <h3>On the watch</h3>
+    <ol>
+      <li>Open <strong>WristCursor</strong></li>
+      <li>Allow <strong>Location</strong> if asked (needed for Bluetooth scan)</li>
+      <li>Tap <strong>Find computer</strong> and leave it open</li>
+      <li>If the list is empty, tap <strong>Scan again</strong></li>
+    </ol>
+
+    <h3>Mac</h3>
+    <ol>
+      <li>System Settings → <strong>Bluetooth</strong> → turn ON</li>
+      <li>Keep that window open so Mac is discoverable</li>
+      <li>Look for your <strong>watch name</strong> and click Connect</li>
+      <li>On watch: tap the Mac → <strong>Connect</strong></li>
+      <li>Choose <strong>Air mouse</strong></li>
+    </ol>
+
+    <h3>Windows PC</h3>
+    <ol>
+      <li>Settings → Bluetooth &amp; devices → ON</li>
+      <li>Add device → Bluetooth</li>
+      <li>Select your <strong>watch</strong></li>
+      <li>On watch → <strong>Connect</strong> → Air mouse</li>
+    </ol>
+
+    <h3>Android phone</h3>
+    <ol>
+      <li>Phone Bluetooth ON</li>
+      <li>From watch Find computer, tap the phone → pair</li>
+      <li>Connect → Air mouse</li>
+    </ol>
+
+    <div class="tip">
+      <strong style="color:var(--accent)">Tip:</strong> Pairing often works better when the <em>computer</em> searches for the watch while Find computer is open on the watch — not only the other way around.
+    </div>
+  </aside>
+
+  <script>
+    function show(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      const btn = document.querySelector(`.nav button[data-screen="${id}"]`);
+      if (btn) btn.classList.add('active');
+    }
+    document.querySelectorAll('.nav button').forEach(btn => {
+      btn.addEventListener('click', () => show(btn.dataset.screen));
+    });
+  </script>
+</body>
+</html>

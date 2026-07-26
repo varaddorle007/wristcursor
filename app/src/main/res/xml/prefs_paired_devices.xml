@@ -19,14 +19,24 @@
     <Preference
             android:key="pref_bluetoothScan"
             android:title="@string/pref_bluetoothAvailable"
+            android:summary="@string/pref_bluetoothAvailable_summary"
             android:icon="@drawable/ic_bt_search"
-            android:order="200"
-            android:fragment="com.ginkage.wearmouse.ui.devices.AvailableDevicesFragment" />
+            android:order="10"
+            android:fragment="com.wristcursor.app.ui.devices.AvailableDevicesFragment" />
+    <Preference
+            android:key="pref_help"
+            android:title="@string/pref_help"
+            android:summary="@string/pref_help_summary"
+            android:icon="@drawable/ic_info"
+            android:order="20"
+            android:persistent="false"
+            android:fragment="com.wristcursor.app.ui.devices.HelpFragment" />
     <Preference
             android:key="pref_appAbout"
             android:title="@string/pref_appAbout"
-            android:icon="@drawable/ic_info"
+            android:summary="@string/pref_appAbout_summary"
+            android:icon="@drawable/ic_bt_ellipsis"
             android:order="300"
             android:persistent="false"
-            android:fragment="com.ginkage.wearmouse.ui.devices.AboutFragment" />
+            android:fragment="com.wristcursor.app.ui.devices.AboutFragment" />
 </PreferenceScreen>

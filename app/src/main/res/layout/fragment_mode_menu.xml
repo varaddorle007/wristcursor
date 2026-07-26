@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/black">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="24dp"
+        android:paddingBottom="36dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/pref_mode_select"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp" />
+
+        <include
+            android:id="@+id/row_mouse"
+            layout="@layout/row_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <include
+            android:id="@+id/row_touchpad"
+            layout="@layout/row_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <include
+            android:id="@+id/row_cursor"
+            layout="@layout/row_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <include
+            android:id="@+id/row_keyboard"
+            layout="@layout/row_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <include
+            android:id="@+id/row_settings"
+            layout="@layout/row_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <include
+            android:id="@+id/row_disconnect"
+            layout="@layout/row_menu_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+</ScrollView>

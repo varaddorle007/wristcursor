@@ -26,15 +26,17 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
-            android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Without this, API 31+ caps sensor sampling at 200 Hz for the whole app. -->
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
     <application
-            android:name=".WearMouseApp"
+            android:name=".WristCursorApp"
             android:label="@string/app_name"
             android:theme="@android:style/Theme.DeviceDefault"
             android:icon="@drawable/ic_launcher"
@@ -76,6 +78,16 @@
             android:name=".ui.input.InputActivity"
             android:exported="true"
             android:theme="@style/Theme.Wearable.Modal"
+            />
+
+        <activity
+            android:name=".ui.input.InputSettingsActivity"
+            android:exported="false"
+            />
+
+        <activity
+            android:name=".ui.input.ModeSelectActivity"
+            android:exported="false"
             />
 
         <activity

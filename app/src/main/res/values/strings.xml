@@ -16,7 +16,9 @@
   -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Name of the app in launcher. -->
-    <string name="app_name">WearMouse</string>
+    <string name="app_name">WristCursor</string>
+    <!-- Short tagline under the app name. -->
+    <string name="app_tagline">Watch → mouse for your computer</string>
 
     <!-- Prompt to wait for Bluetooth to turn on. -->
     <string name="please_wait">Please wait…</string>
@@ -24,21 +26,56 @@
     <string name="generic_disabled">OFF</string>
 
     <!-- The title of the activity for managing paired bluetooth devices -->
-    <string name="pref_bluetooth">Paired devices</string>
+    <string name="pref_bluetooth">WristCursor</string>
+    <!-- Empty-state hint on the home screen -->
+    <string name="pref_bluetooth_empty_hint">Tap Find computer to pair your laptop</string>
     <!-- The title of the category for unpaired bluetooth devices available to pair with. -->
-    <string name="pref_bluetoothAvailable">Available devices</string>
+    <string name="pref_bluetoothAvailable">Connect device</string>
+    <string name="pref_bluetoothAvailable_summary">Pair phone, laptop, or PC</string>
+    <string name="pref_bluetoothAvailable_empty">No devices yet</string>
+    <string name="pref_bluetoothAvailable_empty_summary">Open Bluetooth on your Mac/PC and search for this watch while this screen stays open</string>
+    <string name="section_paired">Paired devices</string>
+    <string name="section_paired_empty">No paired devices yet</string>
+    <string name="section_nearby">Nearby (optional)</string>
+    <string name="section_nearby_empty">Mac / PC usually WON’T appear here.\nLeave this screen open, then pair FROM your computer’s Bluetooth settings.\nWatch shows under Paired after that.</string>
+    <string name="status_scan_empty">No Nearby devices — that’s normal. Pair FROM Mac/PC while this screen stays open.</string>
+    <string name="status_need_discoverable">Allow “shown to other devices” so Mac/PC can find this watch.</string>
+    <string name="status_discoverable_ok">Watch is visible — pair FROM Mac/PC Bluetooth now.</string>
+    <string name="pref_review">Rate this app</string>
+    <string name="pref_review_summary">Leave a ⭐ review</string>
+    <string name="review_unavailable">Play Store not available on this watch</string>
+    <string name="device_tap_connect">Tap to connect</string>
+    <string name="device_tap_pair">Tap to pair</string>
+    <string name="device_pairing">Pairing…</string>
+    <string name="device_connecting">Connecting…</string>
+    <string name="pairing_failed">Pairing failed — on Mac/PC open Bluetooth and add this watch instead</string>
+    <string name="pairing_started">Pairing… confirm on the other device if asked</string>
+    <string name="pref_bluetoothScan_summary">Tap to search again</string>
+    <string name="status_bt_on">Bluetooth: ON</string>
+    <string name="status_bt_off">Bluetooth: OFF</string>
+    <string name="status_scanning">Scanning…</string>
+    <string name="status_scan_failed">Scan failed. Check permissions and Bluetooth, then tap Scan again.</string>
+    <string name="status_need_permission">Permissions needed to find devices</string>
+    <string name="pref_enable_bluetooth">Turn Bluetooth ON</string>
+    <string name="pref_enable_bluetooth_summary">Required to find phones and computers</string>
+    <string name="pref_grant_permissions">Allow permissions</string>
+    <string name="pref_grant_permissions_summary">Bluetooth + Location required for scanning</string>
+    <string name="device_type_phone">Phone — tap to pair</string>
+    <string name="device_type_computer">Computer — tap to pair</string>
+    <string name="device_type_device">Tap to pair</string>
+    <string name="device_already_paired">Already paired — go back and Connect</string>
     <!-- Title of the list item to be clicked on when the user wants to trigger a new bluetooth device discovery process. -->
-    <string name="pref_bluetoothScan">Scan for nearby devices</string>
+    <string name="pref_bluetoothScan">Scan again</string>
     <!-- Message to be shown during the bluetooth device discovery process. -->
-    <string name="pref_bluetoothScan_scanning">Scanning for nearby devices…</string>
+    <string name="pref_bluetoothScan_scanning">Scanning…</string>
     <!-- Action to connect to a paired Bluetooth device. -->
     <string name="pref_bluetooth_connect">Connect</string>
     <!-- Action to disconnect from a connected paired Bluetooth device. -->
     <string name="pref_bluetooth_disconnect">Disconnect</string>
     <!-- Action to unpair a paired Bluetooth device. -->
-    <string name="pref_bluetooth_unpair">Unpair</string>
+    <string name="pref_bluetooth_unpair">Forget</string>
     <!-- Action to select a connected paired Bluetooth device. -->
-    <string name="pref_bluetooth_select">Select</string>
+    <string name="pref_bluetooth_select">Open controls</string>
     <!-- Message which is shown on entering the bluetooth settings when bluetooth is enabling. -->
     <string name="pref_bluetooth_turningOn">Bluetooth turning on…</string>
     <!-- Message which is shown on entering the bluetooth settings when bluetooth is disabling. -->
@@ -62,14 +99,22 @@
 
     <!-- Name of the menu entry for the About dialog. -->
     <string name="pref_appAbout">About</string>
+    <string name="pref_appAbout_summary">App info</string>
+    <!-- Help / how to connect -->
+    <string name="pref_help">How to connect</string>
+    <string name="pref_help_summary">Mac, Windows &amp; phone steps</string>
+    <string name="help_button_label">?</string>
+    <string name="help_connect_cd">Connection help</string>
+    <string name="help_connect_steps">BLUETOOTH ONLY\n\n1. Keep Connect open on the watch.\n2. On your Mac or PC, open Bluetooth and pair WristCursor.\n3. Return here, tap the computer under Paired, then tap Connect.\n\nIf it is not listed under Nearby, pair it from the computer first.\n\nWi‑Fi is not used for connection or cursor control.</string>
     <!-- Title of the button that shows the license. -->
-    <string name="pref_about_openSource">Open source license</string>
+    <string name="pref_about_openSource">Licenses</string>
 
     <!-- Title at the top of the input mode selection -->
-    <string name="pref_mode_select">Input Mode</string>
+    <string name="pref_mode_select">How do you want to control?</string>
 
     <!-- Title of the Mouse emulation mode -->
-    <string name="pref_inputMouse">Mouse</string>
+    <string name="pref_inputMouse">Air mouse</string>
+    <string name="pref_inputMouse_summary">Move your wrist to point</string>
 
     <!-- Single-letter left button label -->
     <string name="left_button_label">L</string>
@@ -82,7 +127,21 @@
     <!-- Name of the extra option to click the middle mouse button -->
     <string name="middle_click">Middle click</string>
     <!-- Hint for the users about the way they can navigate in the mouse emulation mode (3 lines) -->
-    <string name="tap_to_click">Wave your hand to move pointer\nTap button to click\nPull from the top to switch hand</string>
+    <string name="tap_to_click">Tap the mouse to start\nMove your wrist to point\nPinch thumb + index to click\nPalm up + pinch = right click\nShake to exit</string>
+    <string name="mouse_back">Back</string>
+    <string name="mouse_help">Mouse help</string>
+    <string name="mouse_help_title">Air mouse</string>
+    <string name="mouse_help_message">Tap the mouse to start or pause. Move your wrist to move the cursor. Tap READY for a click. Open Settings to choose Touchpad, Keys, or Mouse.</string>
+    <string name="mouse_toggle_cd">Arm or pause mouse</string>
+    <string name="mouse_status_paused">TAP MOUSE TO START</string>
+    <string name="mouse_status_ready">READY · pinch or tap text</string>
+    <string name="mouse_back_hint">← Back · swipe left · shake</string>
+    <string name="mouse_footer_clean">Pinch · Double-tap · Shake ←</string>
+    <string name="mouse_gesture_hint">Pinch in/out · Double-tap</string>
+    <string name="mouse_open_settings_hint">Open Settings from the mode menu</string>
+    <string name="mouse_hand_left_short">Left wrist</string>
+    <string name="mouse_hand_center_short">In hand</string>
+    <string name="mouse_hand_right_short">Right wrist</string>
     <!-- Name of the left wrist mode (2 lines) -->
     <string name="mouse_hand_left">Left Hand\n(Watch is on the left wrist)</string>
     <!-- Name of the hand-held mode (2 lines) -->
@@ -92,11 +151,21 @@
 
     <!-- Title of the Touchpad emulation mode -->
     <string name="pref_inputTouchpad">Touchpad</string>
+    <string name="pref_inputTouchpad_summary">Swipe on the watch screen</string>
 
-    <!-- Title of the Keypad cursor emulation mode -->
-    <string name="pref_inputCursor">Cursor keys</string>
-    <!-- Hint for the user to learn about the keypad mode interaction -->
-    <string name="keypad_hint">Double tap: Enter key\nLong press: Exit keypad mode\nSwipe from center for extra keys</string>
+    <!-- Title of the direct keyboard remote mode -->
+    <string name="pref_inputCursor">PC Remote</string>
+    <string name="pref_inputCursor_summary">D-pad, Select and Back</string>
+    <string name="pc_remote_title">PC REMOTE</string>
+    <string name="pc_remote_status">BLUETOOTH HID</string>
+    <string name="pc_remote_escape_short">ESC</string>
+    <string name="remote_up">Up</string>
+    <string name="remote_left">Left</string>
+    <string name="remote_select">Select</string>
+    <string name="remote_right">Right</string>
+    <string name="remote_down">Down</string>
+    <!-- Kept as a default for legacy translated resources from the previous keypad screen. -->
+    <string name="keypad_hint">Use the PC Remote buttons</string>
     <!-- Name of the Escape key -->
     <string name="key_name_escape">Escape</string>
     <!-- Name of the Backspace key -->
@@ -107,10 +176,16 @@
     <string name="key_name_space">Space</string>
 
     <!-- Title of the Keyboard text input emulation mode -->
-    <string name="pref_inputKeyboard">Keyboard input</string>
+    <string name="pref_inputKeyboard">Type text</string>
+    <string name="pref_inputKeyboard_summary">Keyboard or voice</string>
 
     <!-- Title at the top of settings view -->
     <string name="pref_inputSettings">Settings</string>
+    <string name="pref_inputSettings_summary">Calibration &amp; options</string>
+    <string name="pref_settingControlMode">Control mode</string>
+    <string name="pref_settingControlMode_summary">Mouse, touchpad, keys or keyboard</string>
+    <string name="pref_disconnect">Disconnect</string>
+    <string name="pref_disconnect_summary">End connection with this device</string>
 
     <!-- Name of the preference for gyroscope calibration [CHAR_LIMIT=40] -->
     <string name="pref_settingCalibration">Calibrate sensors</string>
@@ -136,17 +211,23 @@
     <string name="pref_settingStayConnected">Stay connected in the background</string>
     <!-- Description of the preference for keeping the device connection in the background -->
     <string name="pref_settingStayConnected_summary">Keep device connection active while the app is minimized</string>
+    <string name="pref_settingGesturePinch">Pinch to click</string>
+    <string name="pref_settingGesturePinch_summary">Pinch in = left click · Pinch out = right click</string>
+    <string name="pref_settingGestureShakeBack">Shake to go back</string>
+    <string name="pref_settingGestureShakeBack_summary">Shake your wrist to leave Air mouse</string>
+    <string name="pref_settingShowClickButtons">Show L / R buttons</string>
+    <string name="pref_settingShowClickButtons_summary">Turn off for gesture-only mouse screen</string>
     <!-- Name of the preference that allows you to go through all tutorials once again -->
     <string name="pref_settingReplayTutorials">Repeat all tutorials</string>
     <!-- Description of the preference that allows you to go through all tutorials once again -->
     <string name="pref_settingReplayTutorials_summary">Show help screens for every mode once again when you enter them</string>
 
     <!-- Tutorial text for the first launch of the application -->
-    <string name="onboarding_message_welcome">Use your Wear OS smartwatch as a Bluetooth mouse or keyboard; start by pairing to another device.</string>
+    <string name="onboarding_message_welcome">Control a computer from your watch.\n\n1. Open Connect device on the watch\n2. On Mac/PC: Bluetooth → add/pair your watch\n3. Tap the computer → Connect\n4. Choose Air mouse\n\nOpen How to connect anytime for full steps.</string>
     <!-- Tutorial text for the mouse mode -->
-    <string name="onboarding_message_mouse">Move your Wear OS device to move the mouse pointer on the screen.</string>
+    <string name="onboarding_message_mouse">Move your wrist to move the pointer.\nTap L or R to click.</string>
     <!-- Tutorial text for the cursor keys mode -->
-    <string name="onboarding_message_keypad">Tap on the sides of the Wear OS device\'s screen to press arrow keys.</string>
+    <string name="onboarding_message_keypad">Tap the edges of the screen for arrow keys.</string>
     <!-- Tutorial text for the calibration process [CHAR_LIMIT=300] -->
-    <string name="onboarding_message_calibration">Place your Wear OS device on a solid, level surface and make sure it is completely still.</string>
+    <string name="onboarding_message_calibration">Lay the watch flat and keep it still until calibration finishes.</string>
 </resources>

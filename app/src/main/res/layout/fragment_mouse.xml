@@ -1,159 +1,137 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Copyright 2018 Google LLC All Rights Reserved.
+  Galaxy Watch 6 Classic 47mm (SM-R965F): 480x480 px @ 340dpi == 225.9dp, ROUND.
+  Visible area is the inscribed circle: radius 113dp about (113,113). For every element,
+  (distance of its centre from the screen centre) + (its own radius) must stay under ~108dp.
+  Nothing is anchored to a parent corner, because the corners are not on screen.
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-  -->
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+  Vertical budget is assigned with explicit top margins so the rows can never collide:
+    brand    22..36     hero  46..134     status 138..160     buttons 166..210
+  The two 44dp controls land at (113 +/- 28, 188) -> 78dp from centre, +22dp radius = 100dp.
+  They remain inside the 113dp visible circle on the Watch 6, including the 40mm model.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mouse_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:background="@color/black"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <androidx.wear.widget.drawer.WearableDrawerLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/content_frame"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:id="@+id/content_frame">
+        <TextView
+            android:id="@+id/mouse_brand"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:letterSpacing="0.18"
+            android:maxLines="1"
+            android:text="@string/app_name"
+            android:textAllCaps="true"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-            <androidx.constraintlayout.widget.Guideline
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/left_guideline"
-                app:layout_constraintGuide_percent=".20"
-                android:orientation="vertical"/>
+        <View
+            android:id="@+id/mouse_glow"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_wow_glow_paused"
+            app:layout_constraintBottom_toBottomOf="@id/mouse_icon"
+            app:layout_constraintEnd_toEndOf="@id/mouse_icon"
+            app:layout_constraintStart_toStartOf="@id/mouse_icon"
+            app:layout_constraintTop_toTopOf="@id/mouse_icon" />
 
-            <androidx.constraintlayout.widget.Guideline
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/top_guideline"
-                app:layout_constraintGuide_percent=".20"
-                android:orientation="horizontal"/>
+        <ImageView
+            android:id="@+id/mouse_icon"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="46dp"
+            android:clickable="true"
+            android:contentDescription="@string/mouse_toggle_cd"
+            android:focusable="true"
+            android:padding="20dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_wow_mouse"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintWidth_percent="0.39" />
 
-            <androidx.constraintlayout.widget.Guideline
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/right_guideline"
-                app:layout_constraintGuide_percent=".67"
-                android:orientation="vertical"/>
+        <TextView
+            android:id="@+id/mouse_status"
+            android:layout_width="0dp"
+            android:layout_height="22dp"
+            android:layout_marginTop="138dp"
+            android:gravity="center"
+            android:letterSpacing="0.06"
+            android:maxLines="1"
+            android:text="@string/mouse_status_paused"
+            android:textAllCaps="true"
+            android:textColor="@color/wow_teal"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintWidth_percent="0.74" />
 
-            <androidx.constraintlayout.widget.Guideline
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/bottom_guideline"
-                app:layout_constraintGuide_percent=".80"
-                android:orientation="horizontal"/>
+        <TextView
+            android:id="@+id/btn_help"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="166dp"
+            android:background="@drawable/bg_circle_soft"
+            android:contentDescription="@string/mouse_help"
+            android:gravity="center"
+            android:text="?"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.375"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-            <Button
-                android:id="@+id/left_button"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_marginHorizontal="2dp"
-                android:layout_marginVertical="2dp"
-                android:background="@drawable/button_left"
-                android:backgroundTint="@color/grey"
-                android:text="@string/left_button_label"
-                android:textColor="@color/dark_grey"
-                android:textSize="48sp"
-                app:layout_constraintBottom_toBottomOf="@id/bottom_guideline"
-                app:layout_constraintLeft_toLeftOf="@id/left_guideline"
-                app:layout_constraintRight_toRightOf="@id/right_guideline"
-                app:layout_constraintTop_toTopOf="@id/top_guideline" />
-
-            <Button
-                android:id="@+id/right_button"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_marginLeft="2dp"
-                android:layout_marginTop="2dp"
-                android:layout_marginRight="5dp"
-                android:layout_marginBottom="2dp"
-                android:background="@drawable/button_right"
-                android:backgroundTint="@color/grey"
-                android:text="@string/right_button_label"
-                android:textColor="@color/dark_grey"
-                android:textSize="48sp"
-                app:layout_constraintBottom_toBottomOf="@id/bottom_guideline"
-                app:layout_constraintLeft_toLeftOf="@id/right_guideline"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@id/top_guideline" />
-
-            <ImageView
-                android:id="@+id/pointer_direction"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:src="@drawable/am_pointer_arrow"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintBottom_toBottomOf="@id/top_guideline"
-                app:layout_constraintTop_toTopOf="parent"/>
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:src="@drawable/am_drag_handle"
-                android:tint="@color/grey"
-                android:rotation="90"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintRight_toRightOf="@id/left_guideline"
-                app:layout_constraintBottom_toBottomOf="@id/bottom_guideline"
-                app:layout_constraintTop_toTopOf="@id/top_guideline"/>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <androidx.wear.widget.drawer.WearableNavigationDrawerView
-            android:id="@+id/top_navigation_drawer"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/black"
-            app:navigationStyle="singlePage" />
-
-        <androidx.wear.widget.drawer.WearableActionDrawerView
-            android:id="@+id/bottom_action_drawer"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/black"
-            app:actionMenu="@menu/action_drawer_menu"
-            app:showOverflowInPeek="true" />
-
-    </androidx.wear.widget.drawer.WearableDrawerLayout>
+        <ImageButton
+            android:id="@+id/btn_settings"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="166dp"
+            android:background="@drawable/bg_circle_soft"
+            android:contentDescription="@string/pref_inputSettings"
+            android:padding="11dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_wow_gear"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.625"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <FrameLayout
         android:id="@+id/mouse_hint"
-        android:background="#7F000000"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="#CC0B0F14"
         android:visibility="gone">
 
         <TextView
+            style="@style/Text.Hint"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:text="@string/tap_to_click"/>
-
+            android:paddingStart="34dp"
+            android:paddingEnd="34dp"
+            android:text="@string/tap_to_click" />
     </FrameLayout>
-
 </FrameLayout>
-
-</ScrollView>

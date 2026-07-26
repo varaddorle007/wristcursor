@@ -70,16 +70,11 @@ void OrientationTracker::Resume() {
 }
 
 Vector4 OrientationTracker::GetPose(int64_t timestamp_ns) const {
-  Rotation predicted_rotation;
   const PoseState pose_state = sensor_fusion_->GetLatestPoseState();
-  if (!sensor_fusion_->IsFullyInitialized()) {
-    CARDBOARD_LOGI(
-        "Orientation Tracker not fully initialized yet. Using pose prediction only.");
-    predicted_rotation = pose_prediction::PredictPose(timestamp_ns, pose_state);
-  } else {
-    predicted_rotation = pose_state.sensor_from_start_rotation;
-  }
-
+  // Always predict with latest gyro velocity. Cardboard skipped prediction once
+  // the EKF was warm — that lag feels awful for an air mouse / HID pointer.
+  const Rotation predicted_rotation =
+      pose_prediction::PredictPose(timestamp_ns, pose_state);
   return (-predicted_rotation).GetQuaternion();
 }
 
@@ -112,8 +107,12 @@ void OrientationTracker::OnGyroscopeData(const GyroscopeData& event) {
   latest_gyroscope_data_ = data;
   sensor_fusion_->ProcessGyroscopeSample(data);
 
+  // The Watch 6/Mac HID path has a measured one-to-two-report delivery delay. Predict roughly
+  // three output ticks ahead so the pointer follows the wrist instead of visibly trailing it,
+  // while staying well below the old 28 ms value that made the cursor jitter at rest.
+  constexpr int64_t kMouseLookAheadNs = 24000000LL;
   thread_callbacks_->onOrientation(
-      OrientationTracker::GetPose(data.sensor_timestamp_ns + sampling_period_ns_));
+      OrientationTracker::GetPose(data.sensor_timestamp_ns + kMouseLookAheadNs));
 }
 
 }  // namespace cardboard
