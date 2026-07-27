@@ -47,6 +47,13 @@ class CalibrationData {
         2.021, 2.009, 2.000, 1.990, 1.984, 1.980, 1.960
     };
 
+    /**
+     * Largest per-axis sample spread, in rad/s, that still counts as "the watch was held still".
+     * Measured on a Galaxy Watch 6: flat on a table gives about 0.01-0.02, while a worn wrist gives
+     * 0.09 and up. Sitting between the two lets a good calibration through and rejects the rest.
+     */
+    private static final double MAX_STILL_SIGMA = 0.05;
+
     // Number of samples (degrees of freedom) for the corresponding T values.
     private static final int[] Nn = {
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
@@ -199,6 +206,25 @@ class CalibrationData {
                         sigma.z));
 
         if (idx == Nn.length - 1) {
+            // Refuse a calibration that was taken while the watch was moving. sigma is the spread
+            // of the collected samples: a genuinely stationary Galaxy Watch sits near 0.01 rad/s,
+            // while readings taken on a moving wrist come back an order of magnitude higher and
+            // carry real motion in the median. Storing that is worse than not calibrating at all,
+            // because the bogus bias is then subtracted from every subsequent reading — and since
+            // it lands in the same range as slow deliberate pointing, that is precisely the motion
+            // it swallows. Start the window again instead, so calibration completes on its own as
+            // soon as the watch is actually put down.
+            final double worstSigma =
+                    Math.max(Math.abs(sigma.x), Math.max(Math.abs(sigma.y), Math.abs(sigma.z)));
+            if (worstSigma > MAX_STILL_SIGMA) {
+                Log.w(
+                        TAG,
+                        String.format(
+                                "Discarding calibration taken while moving: sigma=%f > %f",
+                                worstSigma, MAX_STILL_SIGMA));
+                reset();
+                return;
+            }
             complete = true;
             storeData();
         }

@@ -50,14 +50,13 @@ public class HidDataSender
     /** A failed registerApp call does not produce a callback, so retry it explicitly. */
     private static final long SDP_REGISTER_RETRY_MS = 750L;
     private static final int AXIS_LIMIT = 127;
-    /** Preserve at most one extra 8-bit packet after a hard flick; never create a long tail. */
-    private static final int MAX_PENDING_AXIS = AXIS_LIMIT * 2;
     /**
-     * The Watch 6 Bluetooth stack queues fast HID submissions and releases them to macOS in big
-     * clumps. It sustains a fresh pointer report about every 40 ms, so merge sensor samples until
-     * the next slot instead of burying the stack under 90–125 reports a second.
+     * Hard ceiling on un-sent motion. Carrying more than a single report of residual is what turns
+     * a hard flick into a cursor that keeps gliding after the wrist has already stopped — the
+     * trailing feel simply relocates out of the Bluetooth queue and into this class. One report of
+     * remainder bounds that tail to a single interval.
      */
-    private static final long MOUSE_REPORT_INTERVAL_MS = 40L;
+    private static final int MAX_PENDING_AXIS = AXIS_LIMIT;
     /** Button transitions must stay ordered, but never allow a broken host to grow a long tail. */
     private static final int MAX_ORDERED_MOUSE_REPORTS = 16;
 
@@ -134,7 +133,69 @@ public class HidDataSender
 
     private final Runnable connectAttemptRunnable = this::tryFulfillConnect;
     private final Runnable sdpReregisterRunnable = this::reregisterSdpIfNeeded;
-    private final Runnable drainMouseReportsRunnable = this::drainOneMouseReport;
+    private final Runnable drainMouseReportsRunnable = this::drainMouseReports;
+
+    /**
+     * Temporary diagnostic: counts reports that actually reach the Bluetooth stack, once a second.
+     * This is the number the 40 ms drain was suppressing — the upstream pacing in
+     * MouseSensorListener always ran at 125 Hz, so only a counter here can tell the two apart.
+     */
+    private static final boolean WIRE_RATE_DEBUG = false;
+
+    private int wireReportCount;
+    private long wireRateWindowStartNs;
+
+    private int inboundCount;
+    private int inboundNonZero;
+    private int inboundNoDevice;
+    private long inboundWindowStartNs;
+
+    /**
+     * Counts what arrives at the sender versus what survives, so a dead pointer can be pinned to a
+     * specific stage instead of guessed at: no device, all-zero motion, or a stalled drain.
+     */
+    private void tickInboundDebug(int dX, int dY, int dWheel, boolean noDevice) {
+        inboundCount++;
+        if (dX != 0 || dY != 0 || dWheel != 0) {
+            inboundNonZero++;
+        }
+        if (noDevice) {
+            inboundNoDevice++;
+        }
+        final long now = System.nanoTime();
+        if (inboundWindowStartNs == 0) {
+            inboundWindowStartNs = now;
+            return;
+        }
+        if (now - inboundWindowStartNs >= 1_000_000_000L) {
+            Log.i(
+                    TAG,
+                    "WCIn: calls="
+                            + inboundCount
+                            + " nonZero="
+                            + inboundNonZero
+                            + " noDevice="
+                            + inboundNoDevice);
+            inboundCount = 0;
+            inboundNonZero = 0;
+            inboundNoDevice = 0;
+            inboundWindowStartNs = now;
+        }
+    }
+
+    private void tickWireRateDebug() {
+        wireReportCount++;
+        final long now = System.nanoTime();
+        if (wireRateWindowStartNs == 0) {
+            wireRateWindowStartNs = now;
+            return;
+        }
+        if (now - wireRateWindowStartNs >= 1_000_000_000L) {
+            Log.i(TAG, "WCWire: hid reports/sec=" + wireReportCount);
+            wireReportCount = 0;
+            wireRateWindowStartNs = now;
+        }
+    }
 
     private HidDataSender(HidDeviceApp hidDeviceApp, HidDeviceProfile hidDeviceProfile) {
         this.hidDeviceApp = checkNotNull(hidDeviceApp);
@@ -262,6 +323,9 @@ public class HidDataSender
     @Override
     @WorkerThread
     public void sendMouse(boolean left, boolean right, boolean middle, int dX, int dY, int dWheel) {
+        if (WIRE_RATE_DEBUG) {
+            tickInboundDebug(dX, dY, dWheel, connectedDevice == null);
+        }
         if (connectedDevice == null) {
             return;
         }
@@ -269,8 +333,10 @@ public class HidDataSender
         /*
          * BluetoothHidDevice.sendReport() is a Binder call. On the Watch 6 it can wait behind the
          * Bluetooth stack, and calling it from the JNI gyro callback freezes the sensor stream.
-         * Keep that wait on a dedicated thread. Pointer reports are latest-wins and capped to one
-         * HID packet, so a slow host cannot turn old wrist motion into a long cursor tail.
+         * Keep that wait on a dedicated thread, and hand it off without adding any delay of our
+         * own — the 125 Hz pacing was already applied upstream. Pointer reports coalesce and the
+         * residual is capped to one HID packet, so a slow host cannot turn old wrist motion into a
+         * long cursor tail.
          */
         synchronized (mouseReportLock) {
             if (left != pendingLeft || right != pendingRight || middle != pendingMiddle) {
@@ -321,38 +387,62 @@ public class HidDataSender
         }
     }
 
-    private void drainOneMouseReport() {
-        final MouseState report;
-        synchronized (mouseReportLock) {
-            if (!orderedMouseReports.isEmpty()) {
-                report = orderedMouseReports.removeFirst();
-            } else if (hasPendingMotion) {
-                final int x = clampToReportAxis(pendingX);
-                final int y = clampToReportAxis(pendingY);
-                final int wheel = clampToReportAxis(pendingWheel);
-                report =
-                        new MouseState(
-                                pendingLeft,
-                                pendingRight,
-                                pendingMiddle,
-                                x,
-                                y,
-                                wheel);
-                pendingX -= x;
-                pendingY -= y;
-                pendingWheel -= wheel;
-                hasPendingMotion = pendingX != 0 || pendingY != 0 || pendingWheel != 0;
-            } else {
-                mouseReportScheduled = false;
-                return;
+    /**
+     * Drains every queued report, then returns. There is deliberately no delay in this loop.
+     *
+     * <p>{@link com.wristcursor.app.input.MouseSensorListener} already paces the pointer to one
+     * report per 8 ms tick, which is exactly the 125 Hz budget the HID link is registered for (see
+     * {@code Constants.QOS_OUT}). Re-throttling on this side re-creates the very queue this thread
+     * exists to avoid. It is also worse than a plain delay: because the producer banks motion
+     * between ticks and the residual is capped, a slow drain does not just postpone the cursor, it
+     * puts a ceiling on how fast the cursor can travel at all — fast wrist motion is accumulated,
+     * clamped, and then discarded rather than delivered.
+     *
+     * <p>The dedicated thread still earns its keep: {@code BluetoothHidDevice.sendReport()} is a
+     * Binder call that can wait on the Bluetooth stack, and making that call from the JNI gyro
+     * callback stalls the sensor stream. Running it here lets the stack apply its own backpressure
+     * while fresh samples coalesce into the pending accumulator, so the link self-paces instead of
+     * being paced by a hardcoded guess.
+     */
+    private void drainMouseReports() {
+        while (true) {
+            final MouseState report;
+            synchronized (mouseReportLock) {
+                if (!orderedMouseReports.isEmpty()) {
+                    report = orderedMouseReports.removeFirst();
+                } else if (hasPendingMotion) {
+                    final int x = clampToReportAxis(pendingX);
+                    final int y = clampToReportAxis(pendingY);
+                    final int wheel = clampToReportAxis(pendingWheel);
+                    report =
+                            new MouseState(
+                                    pendingLeft,
+                                    pendingRight,
+                                    pendingMiddle,
+                                    x,
+                                    y,
+                                    wheel);
+                    pendingX -= x;
+                    pendingY -= y;
+                    pendingWheel -= wheel;
+                    hasPendingMotion = pendingX != 0 || pendingY != 0 || pendingWheel != 0;
+                } else {
+                    // Disarm while still holding the lock, so the next sample either posts a fresh
+                    // drain or is picked up by this pass — never dropped, never left waiting on an
+                    // already-scheduled timer.
+                    mouseReportScheduled = false;
+                    return;
+                }
+            }
+
+            if (connectedDevice != null) {
+                if (WIRE_RATE_DEBUG) {
+                    tickWireRateDebug();
+                }
+                hidDeviceApp.sendMouse(
+                        report.left, report.right, report.middle, report.x, report.y, report.wheel);
             }
         }
-
-        if (connectedDevice != null) {
-            hidDeviceApp.sendMouse(
-                    report.left, report.right, report.middle, report.x, report.y, report.wheel);
-        }
-        mouseReportHandler.postDelayed(drainMouseReportsRunnable, MOUSE_REPORT_INTERVAL_MS);
     }
 
     private void clearPendingMouseReports() {
@@ -513,10 +603,26 @@ public class HidDataSender
                 public void onConnectionStateChanged(BluetoothDevice device, int state) {
                     synchronized (lock) {
                         if (state == BluetoothProfile.STATE_CONNECTED) {
-                            waitingForDevice = device;
+                            // This callback is authoritative: the stack is telling us this exact
+                            // device is connected right now. Promote it here instead of waiting for
+                            // updateDeviceListLocked() to rediscover it via getConnectedDevices(),
+                            // which on Wear can still be empty at the instant the callback fires.
+                            // That race left connectedDevice null while the link was genuinely up,
+                            // and sendMouse()/sendKeyboard() drop every report when it is null — so
+                            // the pointer, pinch clicks and media keys all silently went nowhere.
                             connectAttempt = 0;
                             mainHandler.removeCallbacks(connectAttemptRunnable);
+                            waitingForDevice = null;
+                            connectedDevice = device;
+                            hidDeviceApp.setDevice(device);
+                            clearPendingMouseReports();
+                            Log.i(TAG, "connectedDevice set from callback: " + device.getAddress());
                         } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                            if (device.equals(connectedDevice)) {
+                                connectedDevice = null;
+                                hidDeviceApp.setDevice(null);
+                                clearPendingMouseReports();
+                            }
                             if (waitingForDevice != null && waitingForDevice.equals(device)) {
                                 scheduleNextRetryLocked();
                             }
@@ -574,8 +680,17 @@ public class HidDataSender
             connectAttempt = 0;
             mainHandler.removeCallbacks(connectAttemptRunnable);
         } else if (connectedDevice != null && connected == null) {
-            connectedDevice = null;
-            disconnected = true;
+            // getConnectedDevices() lags the connection callback on Wear, and an empty list is not
+            // proof that the link dropped. Only let go of the device once the stack itself agrees
+            // it is gone; otherwise we would null out a live connection and silently stop sending
+            // every report, which looks exactly like "the app does nothing".
+            if (hidDeviceProfile.getConnectionState(connectedDevice)
+                    == BluetoothProfile.STATE_CONNECTED) {
+                connected = connectedDevice;
+            } else {
+                connectedDevice = null;
+                disconnected = true;
+            }
         }
         hidDeviceApp.setDevice(connectedDevice);
         if (disconnected) {

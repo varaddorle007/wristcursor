@@ -1,0 +1,38 @@
+WristCursor
+Copyright 2024-2026 Varad Dhananjay Dorle
+
+This product includes software developed by third parties, used under the
+Apache License, Version 2.0. A copy of that license is in the LICENSE file.
+
+--------------------------------------------------------------------------------
+WearMouse
+https://github.com/ginkage/wearmouse
+Copyright 2018 Google LLC
+Licensed under the Apache License, Version 2.0
+
+WristCursor is derived from WearMouse. The following are taken from that project,
+in modified form:
+
+  * The Bluetooth HID device implementation - the composite SDP report descriptor
+    (mouse, keyboard and battery collections), HidDeviceApp, HidDeviceProfile and
+    the report encoders in com.wristcursor.app.bluetooth.
+  * The native sensor-fusion orientation tracker under app/src/main/cpp, and the
+    Java layer that drives it in com.wristcursor.app.sensors.
+  * The input controllers and gesture detectors in com.wristcursor.app.input,
+    including the quaternion-to-yaw/pitch pointer transfer function and the
+    stabilisation filter.
+  * The device pairing, mode selection and settings UI structure in
+    com.wristcursor.app.ui.
+
+Original authors and contributors to WearMouse include Ivan Podogov (ginkage)
+and Fabian Henneke (FabianHenneke).
+
+--------------------------------------------------------------------------------
+Modifications in WristCursor
+Copyright 2024-2026 Varad Dhananjay Dorle
+Licensed under the Apache License, Version 2.0
+
+Work original to WristCursor includes the product rebrand and visual design, the
+finger-pinch and palm-up gesture detector, the direct BLE pointer receiver, the
+onboarding and help flows, and the pointer transport, HID pacing and calibration
+changes described in the project history.

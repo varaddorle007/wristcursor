@@ -296,7 +296,17 @@ public class MouseSensorListener implements SensorService.OrientationListener {
         if (!buttonsWaiting && now - lastSendNs < SEND_INTERVAL_NS) {
             return;
         }
-        lastSendNs = now;
+        // Advance the deadline by whole intervals rather than resetting it to now. Sensor samples
+        // land on their own grid — about 5 ms apart at the 200 Hz the watch actually delivers — so
+        // "lastSendNs = now" rounds every tick up to the next sample boundary and the 8 ms target
+        // silently becomes 10 ms: 100 Hz instead of the intended 125 Hz, measured at 95 Hz on the
+        // Watch 6. Stepping the deadline keeps the long-run average at the rate the link is
+        // registered for. Resynchronise after a stall so catch-up can never emit a burst.
+        if (lastSendNs == 0 || now - lastSendNs > 4 * SEND_INTERVAL_NS) {
+            lastSendNs = now;
+        } else {
+            lastSendNs += SEND_INTERVAL_NS;
+        }
 
         sendCurrentState();
         limitPendingMotion();
