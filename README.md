@@ -9,6 +9,15 @@ account.
 
 Created and maintained by **Varad Dhananjay Dorle**.
 
+## The app
+
+| | | | |
+|:-:|:-:|:-:|:-:|
+| <img src="screenshots/welcome.png" width="200" alt="Welcome screen"> | <img src="screenshots/home.png" width="200" alt="Home screen"> | <img src="screenshots/mouse-idle.png" width="200" alt="Mouse mode, paused"> | <img src="screenshots/mouse-ready.png" width="200" alt="Mouse mode, ready"> |
+| Welcome | Home | Paused | Ready |
+
+Captured on a Galaxy Watch 6 (44 mm, 480×480).
+
 ## Features
 
 - **Air mouse** — wrist motion drives the cursor, with a fused-orientation
