@@ -207,6 +207,7 @@ fun rememberGate(): State<GateStatus> {
 
 fun modeIcon(mode: Mode): Int = when (mode) {
     Mode.MOUSE -> R.drawable.ic_mouse
+    Mode.WHEEL -> R.drawable.ic_wheel
     Mode.TOUCHPAD -> R.drawable.ic_touchpad
     Mode.REMOTE -> R.drawable.ic_remote
     Mode.SLIDES -> R.drawable.ic_slides

@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -188,6 +190,13 @@ fun SteerScreen(onStop: () -> Unit, onModes: () -> Unit, onBack: () -> Unit) {
                     when (mode) {
                         Mode.MOUSE, Mode.TOUCHPAD, Mode.KEYBOARD -> PointerBus.perform(Action.Scroll(event.verticalScrollPixels))
                         Mode.MEDIA, Mode.REMOTE -> PointerBus.perform(Action.Volume(event.verticalScrollPixels))
+                        Mode.WHEEL -> {
+                            crown[0] += event.verticalScrollPixels
+                            if (abs(crown[0]) >= 60f) {
+                                act(Action.Press(if (crown[0] > 0) RemoteKey.UP else RemoteKey.DOWN), Haptics.Kind.CLICK)
+                                crown[0] = 0f
+                            }
+                        }
                         Mode.SLIDES -> {
                             crown[0] += event.verticalScrollPixels
                             if (abs(crown[0]) >= SLIDE_STEP_PX) {
@@ -205,6 +214,7 @@ fun SteerScreen(onStop: () -> Unit, onModes: () -> Unit, onBack: () -> Unit) {
             if (steering) {
                 when (mode) {
                     Mode.MOUSE -> MouseFace(tuning, connectedTo, ::act, ::buzz)
+                    Mode.WHEEL -> WheelFace(tuning, ::act, ::buzz)
                     Mode.TOUCHPAD -> TouchpadSurface(tuning, ::buzz, Modifier.fillMaxSize())
                     Mode.REMOTE -> RemoteFace(bindings, ::key)
                     Mode.MEDIA -> RingPad(
@@ -550,5 +560,244 @@ private fun typingInput(): Intent {
     val input = RemoteInput.Builder(TYPE_KEY).setLabel("Type for your computer").build()
     return RemoteInputIntentHelper.createActionRemoteInputIntent().also {
         RemoteInputIntentHelper.putRemoteInputsExtra(it, listOf(input))
+    }
+}
+
+/**
+ * Game controller steering wheel mode for car games.
+ * - Wrist tilt/roll steers the car with ultra-responsive analog precision.
+ * - Left half of the screen is the Brake paddle.
+ * - Right half of the screen is the Gas / Accelerator paddle.
+ * - Center hub tap instantly re-centers/calibrates zero angle.
+ */
+@Composable
+private fun WheelFace(
+    tuning: Tuning,
+    act: (Action, Haptics.Kind) -> Unit,
+    buzz: (Haptics.Kind) -> Unit,
+) {
+    val angle by PointerBus.wheelAngle.collectAsState()
+    val steer by PointerBus.wheelSteer.collectAsState()
+    var throttle by remember { mutableStateOf(false) }
+    var brake by remember { mutableStateOf(false) }
+    var nitro by remember { mutableStateOf(false) }
+
+    // Haptics on center crossing and full lock limits
+    var lastAngleInt by remember { mutableStateOf(0) }
+    LaunchedEffect(angle) {
+        val currentInt = angle.toInt()
+        if (lastAngleInt != currentInt) {
+            if (lastAngleInt != 0 && currentInt == 0) {
+                buzz(Haptics.Kind.TICK) // Center detent feel
+            } else if (abs(currentInt) >= 58 && abs(lastAngleInt) < 58) {
+                buzz(Haptics.Kind.CLICK) // Full lock alert
+            }
+            lastAngleInt = currentInt
+        }
+    }
+
+    fun updatePedals(gas: Boolean, brk: Boolean, ntr: Boolean) {
+        if (gas != throttle || brk != brake || ntr != nitro) {
+            throttle = gas
+            brake = brk
+            nitro = ntr
+            act(Action.WheelPedals(gas, brk, ntr), Haptics.Kind.TICK)
+        }
+    }
+
+    val colors = MaterialTheme.colorScheme
+    val primary = colors.primary
+    val brakeColor = Color(0xFFFF334B)
+    val gasColor = Color(0xFF00E676)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val bounds = size
+                        val cx = bounds.width / 2f
+                        val cy = bounds.height / 2f
+                        val centerRadius = bounds.width * 0.22f
+
+                        var anyGas = false
+                        var anyBrake = false
+                        var anyCenter = false
+
+                        val pressedPointers = event.changes.filter { it.pressed }
+                        for (change in pressedPointers) {
+                            val pos = change.position
+                            val dx = pos.x - cx
+                            val dy = pos.y - cy
+                            val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+
+                            if (dist <= centerRadius) {
+                                anyCenter = true
+                            } else if (pos.x < cx) {
+                                anyBrake = true
+                            } else {
+                                anyGas = true
+                            }
+                        }
+
+                        if (anyCenter && pressedPointers.size == 1 && event.changes.any { !it.previousPressed && it.pressed }) {
+                            act(Action.WheelCenter, Haptics.Kind.CLICK)
+                        }
+
+                        updatePedals(anyGas, anyBrake, false)
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Rotating Racing Steering Wheel & Turn Meter
+        Canvas(modifier = Modifier.fillMaxSize().padding(14.dp)) {
+            val w = size.width
+            val h = size.height
+            val cx = w / 2f
+            val cy = h / 2f
+            val r = (minOf(w, h) / 2f) - 6.dp.toPx()
+
+            // Outer Steer Gauge Arc
+            val sweep = (steer * 90f).coerceIn(-90f, 90f)
+            drawArc(
+                color = colors.surfaceContainer.copy(alpha = 0.5f),
+                startAngle = 180f,
+                sweepAngle = 180f,
+                useCenter = false,
+                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round),
+            )
+            if (abs(sweep) > 1f) {
+                drawArc(
+                    color = primary,
+                    startAngle = 270f,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round),
+                )
+            }
+
+            // Draw Rotating Racing Steering Wheel
+            rotate(degrees = angle, pivot = Offset(cx, cy)) {
+                // Outer Rim
+                drawCircle(
+                    color = colors.onSurface.copy(alpha = 0.85f),
+                    radius = r,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 10.dp.toPx()),
+                )
+
+                // Top 12 O'Clock Racing Alignment Stripe
+                drawArc(
+                    color = primary,
+                    startAngle = 262f,
+                    sweepAngle = 16f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Butt),
+                )
+
+                // Left Spoke
+                drawLine(
+                    color = colors.onSurfaceVariant,
+                    start = Offset(cx - r * 0.35f, cy),
+                    end = Offset(cx - r + 5.dp.toPx(), cy),
+                    strokeWidth = 6.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+
+                // Right Spoke
+                drawLine(
+                    color = colors.onSurfaceVariant,
+                    start = Offset(cx + r * 0.35f, cy),
+                    end = Offset(cx + r - 5.dp.toPx(), cy),
+                    strokeWidth = 6.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+
+                // Bottom Spoke
+                drawLine(
+                    color = colors.onSurfaceVariant,
+                    start = Offset(cx, cy + r * 0.35f),
+                    end = Offset(cx, cy + r - 5.dp.toPx()),
+                    strokeWidth = 6.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+
+                // Center Hub Disc
+                drawCircle(
+                    color = colors.surfaceContainer,
+                    radius = r * 0.36f,
+                    center = Offset(cx, cy),
+                )
+                drawCircle(
+                    color = primary.copy(alpha = 0.6f),
+                    radius = r * 0.36f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 2.dp.toPx()),
+                )
+            }
+        }
+
+        // Center Horn Hub with Digital Angle Readout
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            val angleStr = if (abs(angle) < 1f) "0°" else if (angle > 0) "+${angle.toInt()}°" else "${angle.toInt()}°"
+            Text(
+                text = angleStr,
+                color = primary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "CENTER",
+                color = colors.onSurfaceVariant,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        // Left Touch Paddle: BRAKE
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 6.dp)
+                .size(width = 56.dp, height = 76.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (brake) brakeColor.copy(alpha = 0.55f) else Color.Transparent)
+                .padding(4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "BRAKE",
+                color = if (brake) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+        }
+
+        // Right Touch Paddle: GAS
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 6.dp)
+                .size(width = 56.dp, height = 76.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (throttle) gasColor.copy(alpha = 0.55f) else Color.Transparent)
+                .padding(4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "GAS",
+                color = if (throttle) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+        }
     }
 }

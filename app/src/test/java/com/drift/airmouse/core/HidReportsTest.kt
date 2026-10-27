@@ -36,6 +36,13 @@ class HidReportsTest {
     }
 
     @Test
+    fun gamepadReportEncodesSixteenBitAxesAndButtons() {
+        val out = ByteArray(HidReports.GAMEPAD_SIZE)
+        HidReports.encodeGamepad(out, x = 16384, y = -16384, buttons = 0x05)
+        assertArrayEquals(byteArrayOf(0x00, 0x40, 0x00, 0xC0.toByte(), 0x05), out)
+    }
+
+    @Test
     fun tvKeysUseAndroidConsumerUsages() {
         // Android maps these consumer usages to KEYCODE_HOME and KEYCODE_BACK.
         assertEquals(0x223, HidReports.consumerUsage(RemoteKey.HOME))

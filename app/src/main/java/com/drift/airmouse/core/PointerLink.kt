@@ -49,6 +49,16 @@ interface PointerLink {
 
     /** Puts the cursor in the middle of the screen. Returns false if this link can't know where that is. */
     fun center(): Boolean
+
+    /**
+     * Steer a vehicle in car / racing games.
+     * [steer]: -1.0f (full left) to +1.0f (full right).
+     * [throttle]: true while accelerating (gas pedal down).
+     * [brake]: true while braking / reversing.
+     * [nitro]: true while boosting / handbraking.
+     */
+    fun wheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {}
+
     fun close()
 }
 
@@ -64,6 +74,14 @@ class UdpLink(private val socket: DatagramSocket, private val target: InetAddres
     override fun release(button: MouseButton) = send(Protocol.UP)
 
     override fun scroll(steps: Int) = send(Protocol.scroll(steps))
+
+    override fun wheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {
+        val gas = if (throttle) 1 else 0
+        val brk = if (brake) 1 else 0
+        val ntr = if (nitro) 1 else 0
+        val clampedSteer = ((steer * 1000f).toInt()) / 1000f
+        send("wheel $clampedSteer $gas $brk $ntr")
+    }
 
     override fun send(key: RemoteKey): Boolean {
         val command = Protocol.keyCommand(key) ?: return false

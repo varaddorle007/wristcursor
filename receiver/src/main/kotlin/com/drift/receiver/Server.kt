@@ -46,7 +46,10 @@ class Server(
         when {
             text.startsWith("DRIFT?") -> reply("DRIFT! $computerName", from, port)
             text.startsWith("HELLO ") -> hello(text, from, port)
-            text == "BYE" -> if (connected.remove(from)) ui.waiting()
+            text == "BYE" -> if (connected.remove(from)) {
+                pointer.resetDriving()
+                ui.waiting()
+            }
             from in connected -> pointer.apply(text)
         }
     }
@@ -90,6 +93,7 @@ class Server(
         connected.clear()
         pending.clear()
         denied.clear()
+        pointer.resetDriving()
         ui.waiting()
     }
 

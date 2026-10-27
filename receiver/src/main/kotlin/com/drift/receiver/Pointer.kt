@@ -21,6 +21,11 @@ class Pointer {
     private var lastMoveNanos = 0L
     private var screens = Rectangle()
 
+    private var currentSteer = 0 // -1: Left, 0: Center, 1: Right
+    private var currentGas = false
+    private var currentBrake = false
+    private var currentNitro = false
+
     fun apply(command: String) {
         val parts = command.split(' ')
         when (parts[0]) {
@@ -32,6 +37,13 @@ class Pointer {
             "up" -> robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
             "s" -> robot.mouseWheel(parts[1].toInt())
             "center" -> center()
+            "wheel" -> {
+                val steer = parts.getOrNull(1)?.toFloatOrNull() ?: 0f
+                val throttle = parts.getOrNull(2) == "1"
+                val brake = parts.getOrNull(3) == "1"
+                val nitro = parts.getOrNull(4) == "1"
+                applyWheel(steer, throttle, brake, nitro)
+            }
             "media" -> parts.getOrNull(1)?.let(SystemKeys::media)
             "type" -> parts.getOrNull(1)?.let { encoded ->
                 val text = runCatching { String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8) }.getOrNull()
@@ -46,6 +58,80 @@ class Pointer {
                 "esc" -> press(KeyEvent.VK_ESCAPE)
                 "backspace" -> press(KeyEvent.VK_BACK_SPACE)
             }
+        }
+    }
+
+    fun resetDriving() {
+        if (currentSteer == -1) {
+            runCatching { robot.keyRelease(KeyEvent.VK_LEFT); robot.keyRelease(KeyEvent.VK_A) }
+        } else if (currentSteer == 1) {
+            runCatching { robot.keyRelease(KeyEvent.VK_RIGHT); robot.keyRelease(KeyEvent.VK_D) }
+        }
+        if (currentGas) {
+            runCatching { robot.keyRelease(KeyEvent.VK_UP); robot.keyRelease(KeyEvent.VK_W) }
+        }
+        if (currentBrake) {
+            runCatching { robot.keyRelease(KeyEvent.VK_DOWN); robot.keyRelease(KeyEvent.VK_S) }
+        }
+        if (currentNitro) {
+            runCatching { robot.keyRelease(KeyEvent.VK_SPACE) }
+        }
+        currentSteer = 0
+        currentGas = false
+        currentBrake = false
+        currentNitro = false
+    }
+
+    private fun applyWheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {
+        val steerDir = when {
+            steer < -0.15f -> -1
+            steer > 0.15f -> 1
+            else -> 0
+        }
+
+        // Steer Left / Right (Arrow keys and A/D keys)
+        if (steerDir != currentSteer) {
+            if (currentSteer == -1) {
+                runCatching { robot.keyRelease(KeyEvent.VK_LEFT); robot.keyRelease(KeyEvent.VK_A) }
+            } else if (currentSteer == 1) {
+                runCatching { robot.keyRelease(KeyEvent.VK_RIGHT); robot.keyRelease(KeyEvent.VK_D) }
+            }
+            if (steerDir == -1) {
+                runCatching { robot.keyPress(KeyEvent.VK_LEFT); robot.keyPress(KeyEvent.VK_A) }
+            } else if (steerDir == 1) {
+                runCatching { robot.keyPress(KeyEvent.VK_RIGHT); robot.keyPress(KeyEvent.VK_D) }
+            }
+            currentSteer = steerDir
+        }
+
+        // Throttle (Up / W)
+        if (throttle != currentGas) {
+            if (throttle) {
+                runCatching { robot.keyPress(KeyEvent.VK_UP); robot.keyPress(KeyEvent.VK_W) }
+            } else {
+                runCatching { robot.keyRelease(KeyEvent.VK_UP); robot.keyRelease(KeyEvent.VK_W) }
+            }
+            currentGas = throttle
+        }
+
+        // Brake (Down / S)
+        if (brake != currentBrake) {
+            if (brake) {
+                runCatching { robot.keyPress(KeyEvent.VK_DOWN); robot.keyPress(KeyEvent.VK_S) }
+            } else {
+                runCatching { robot.keyRelease(KeyEvent.VK_DOWN); robot.keyRelease(KeyEvent.VK_S) }
+            }
+            currentBrake = brake
+        }
+
+        // Nitro / Handbrake (Space)
+        if (nitro != currentNitro) {
+            if (nitro) {
+                runCatching { robot.keyPress(KeyEvent.VK_SPACE) }
+            } else {
+                runCatching { robot.keyRelease(KeyEvent.VK_SPACE) }
+            }
+            currentNitro = nitro
         }
     }
 

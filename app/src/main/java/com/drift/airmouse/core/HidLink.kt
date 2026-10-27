@@ -53,6 +53,11 @@ class HidLink(
     private val mouseReport = ByteArray(HidReports.MOUSE_SIZE)
     private val keyReport = ByteArray(HidReports.KEYBOARD_SIZE)
     private val mediaReport = ByteArray(HidReports.MEDIA_SIZE)
+    private val gamepadReport = ByteArray(HidReports.GAMEPAD_SIZE)
+
+    private var lastWheelX = 0
+    private var lastWheelButtons = 0
+    private var lastWheelKeys = IntArray(6)
 
     private val flushRunnable = Runnable {
         flushScheduled = false
@@ -107,6 +112,51 @@ class HidLink(
     override fun scroll(steps: Int) {
         // HID wheel is positive for "scroll up".
         sendMouse(-steps)
+    }
+
+    override fun wheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {
+        val device = host ?: return
+        val x = (steer * HidReports.MAX_DELTA).toInt().coerceIn(-HidReports.MAX_DELTA, HidReports.MAX_DELTA)
+        val y = when {
+            throttle -> 32767
+            brake -> -32767
+            else -> 0
+        }
+        var btn = 0
+        if (throttle) btn = btn or 0x01
+        if (brake) btn = btn or 0x02
+        if (nitro) btn = btn or 0x04
+
+        // 1. Send Gamepad HID report (Report ID 4)
+        if (x != lastWheelX || btn != lastWheelButtons) {
+            lastWheelX = x
+            lastWheelButtons = btn
+            HidReports.encodeGamepad(gamepadReport, x, y, btn)
+            hid?.sendReport(device, HidReports.GAMEPAD_ID, gamepadReport)
+        }
+
+        // 2. Send keyboard arrow keys / space so games expecting keyboard steer instantly
+        val keySteer = when {
+            steer < -0.18f -> HidReports.KEY_LEFT
+            steer > 0.18f -> HidReports.KEY_RIGHT
+            else -> 0
+        }
+        val keyThrottle = if (throttle) 0x52 else 0 // Up Arrow
+        val keyBrake = if (brake) 0x51 else 0       // Down Arrow
+        val keyNitro = if (nitro) 0x2C else 0       // Spacebar
+
+        val targetKeys = intArrayOf(keySteer, keyThrottle, keyBrake, keyNitro, 0, 0)
+        if (!targetKeys.contentEquals(lastWheelKeys)) {
+            lastWheelKeys = targetKeys.clone()
+            keyReport.fill(0)
+            var idx = 2
+            for (k in targetKeys) {
+                if (k != 0 && idx < keyReport.size) {
+                    keyReport[idx++] = k.toByte()
+                }
+            }
+            hid?.sendReport(device, HidReports.KEYBOARD_ID, keyReport)
+        }
     }
 
     override fun send(key: RemoteKey): Boolean {
@@ -305,6 +355,7 @@ class HidLink(
             val report = when (id.toInt()) {
                 HidReports.KEYBOARD_ID -> keyReport.copyOf()
                 HidReports.MEDIA_ID -> mediaReport.copyOf()
+                HidReports.GAMEPAD_ID -> gamepadReport.copyOf()
                 else -> mouseReport.copyOf()
             }
             hid?.replyReport(device, type, id, report)
@@ -354,15 +405,17 @@ class HidLink(
     }
 }
 
-/** What the computer or TV sees: a 3-button mouse with a wheel, a keyboard, and remote/media keys. */
+/** What the computer or TV sees: a 3-button mouse with a wheel, a keyboard, remote/media keys, and a gamepad. */
 object HidReports {
     const val MOUSE_ID = 1
     const val KEYBOARD_ID = 2
     const val LEFT_SHIFT: Byte = 0x02
     const val MEDIA_ID = 3
+    const val GAMEPAD_ID = 4
     const val MOUSE_SIZE = 6
     const val KEYBOARD_SIZE = 8
     const val MEDIA_SIZE = 2
+    const val GAMEPAD_SIZE = 5
     const val MAX_DELTA = 32767
     const val LEFT_BUTTON = 0x01
     const val RIGHT_BUTTON = 0x02
@@ -388,6 +441,13 @@ object HidReports {
         0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, MEDIA_ID,
         0x15, 0x00, 0x26, 0xFF, 0x03, 0x19, 0x00, 0x2A, 0xFF, 0x03, 0x75, 0x10, 0x95, 0x01, 0x81, 0x00,
         0xC0,
+        // Gamepad: Report ID 4, 16-bit X (Steering), 16-bit Y (Throttle/Brake), 8 Buttons
+        0x05, 0x01, 0x09, 0x05, 0xA1, 0x01, 0x85, GAMEPAD_ID,
+        0x09, 0x01, 0xA1, 0x00,
+        0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x16, 0x01, 0x80, 0x26, 0xFF, 0x7F, 0x75, 0x10, 0x95, 0x02, 0x81, 0x02,
+        0xC0,
+        0x05, 0x09, 0x19, 0x01, 0x29, 0x08, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02,
+        0xC0,
     ).map { it.toByte() }.toByteArray()
 
     fun encodeMouse(out: ByteArray, buttons: Int, x: Int, y: Int, wheel: Int) {
@@ -397,6 +457,14 @@ object HidReports {
         out[3] = y.toByte()
         out[4] = (y shr 8).toByte()
         out[5] = wheel.coerceIn(-127, 127).toByte()
+    }
+
+    fun encodeGamepad(out: ByteArray, x: Int, y: Int, buttons: Int) {
+        out[0] = (x and 0xFF).toByte()
+        out[1] = ((x shr 8) and 0xFF).toByte()
+        out[2] = (y and 0xFF).toByte()
+        out[3] = ((y shr 8) and 0xFF).toByte()
+        out[4] = (buttons and 0xFF).toByte()
     }
 
     fun encodeKey(out: ByteArray, keyCode: Int) {
