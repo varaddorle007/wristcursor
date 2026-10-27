@@ -259,6 +259,23 @@ class PointerService : Service(), SensorEventListener {
         scope.launch { prefs.tuning.collect { next -> motion.post { applyTuning(next) } } }
         scope.launch { PointerBus.mode.collect { motion.post { refreshSensing() } } }
         scope.launch { prefs.calibration.collect { motion.post { applyTuning(tuning) } } }
+        scope.launch {
+            PointerBus.paused.collect { isPaused ->
+                motion.post {
+                    if (isPaused) {
+                        if (pinch.holding) releaseHold()
+                        if (PointerBus.mode.value == Mode.GAME) {
+                            PointerBus.wheelThrottle.value = false
+                            PointerBus.wheelBrake.value = false
+                            PointerBus.wheelNitro.value = false
+                            PointerBus.wheelGyroGas.value = false
+                            PointerBus.wheelGyroBrake.value = false
+                            link?.wheel(0f, throttle = false, brake = false, nitro = false)
+                        }
+                    }
+                }
+            }
+        }
 
         when (transport) {
             Transport.BLUETOOTH -> motion.post { startBluetooth() }
@@ -543,6 +560,10 @@ class PointerService : Service(), SensorEventListener {
 
     private fun onWheelTurn(event: SensorEvent) {
         val now = SystemClock.uptimeMillis()
+        if (PointerBus.isFrozen || PointerBus.paused.value) {
+            lastActivityMs = now
+            return
+        }
         SensorManager.getRotationMatrixFromVector(rotMatrix, event.values)
 
         if (!wheelCalibrated) {
@@ -653,6 +674,10 @@ class PointerService : Service(), SensorEventListener {
 
     private fun onWheelGyroFallback(event: SensorEvent) {
         val now = SystemClock.uptimeMillis()
+        if (PointerBus.isFrozen || PointerBus.paused.value) {
+            lastActivityMs = now
+            return
+        }
         val rz = -event.values[2]
         val delta = (rz * 50f).coerceIn(-60f, 60f)
         val steer = (delta / 60f).coerceIn(-1f, 1f)

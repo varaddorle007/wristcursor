@@ -762,6 +762,7 @@ private fun WheelFace(
     val steer by PointerBus.wheelSteer.collectAsState()
     val gyroGas by PointerBus.wheelGyroGas.collectAsState()
     val gyroBrake by PointerBus.wheelGyroBrake.collectAsState()
+    val paused by PointerBus.paused.collectAsState()
     var touchThrottle by remember { mutableStateOf(false) }
     var touchBrake by remember { mutableStateOf(false) }
     var touchNitro by remember { mutableStateOf(false) }
@@ -787,16 +788,15 @@ private fun WheelFace(
     }
 
     fun updatePedals(gas: Boolean, brk: Boolean, ntr: Boolean) {
-        if (gas != touchThrottle || brk != touchBrake || ntr != touchNitro) {
-            touchThrottle = gas
-            touchBrake = brk
-            touchNitro = ntr
-            act(Action.WheelPedals(gas, brk, ntr), Haptics.Kind.TICK)
-        }
+        touchThrottle = gas
+        touchBrake = brk
+        touchNitro = ntr
+        if (paused) return
+        act(Action.WheelPedals(gas, brk, ntr), Haptics.Kind.TICK)
     }
 
-    val isGas = touchThrottle || (tuning.wheelTiltPedals && gyroGas)
-    val isBrake = touchBrake || (tuning.wheelTiltPedals && gyroBrake)
+    val isGas = !paused && (touchThrottle || (tuning.wheelTiltPedals && gyroGas))
+    val isBrake = !paused && (touchBrake || (tuning.wheelTiltPedals && gyroBrake))
 
     val colors = MaterialTheme.colorScheme
     val primary = colors.primary
@@ -1116,21 +1116,31 @@ private fun WheelFace(
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)
-                .clickable { act(Action.WheelCenter, Haptics.Kind.CLICK) },
+                .clickable {
+                    if (paused) {
+                        PointerBus.paused.value = false
+                        buzz(Haptics.Kind.CLICK)
+                        act(Action.Press(RemoteKey.ESCAPE), Haptics.Kind.CLICK)
+                    } else {
+                        act(Action.WheelCenter, Haptics.Kind.CLICK)
+                    }
+                },
         ) {
-            val angleStr = if (abs(angle) < 1f) "0°" else if (angle > 0) "+${angle.toInt()}°" else "${angle.toInt()}°"
+            val angleStr = if (paused) "PAUSED" else if (abs(angle) < 1f) "0°" else if (angle > 0) "+${angle.toInt()}°" else "${angle.toInt()}°"
             Text(
                 text = angleStr,
-                color = primary,
-                fontSize = 16.sp,
+                color = if (paused) colors.error else primary,
+                fontSize = if (paused) 12.sp else 16.sp,
                 fontWeight = FontWeight.Bold,
             )
             val subText = when {
+                paused -> "TAP TO PLAY"
                 tuning.wheelTiltPedals && gyroGas -> "▲ GAS"
                 tuning.wheelTiltPedals && gyroBrake -> "▼ BRAKE"
                 else -> "CENTER"
             }
             val subColor = when {
+                paused -> colors.error.copy(alpha = 0.85f)
                 tuning.wheelTiltPedals && gyroGas -> gasColor
                 tuning.wheelTiltPedals && gyroBrake -> brakeColor
                 else -> colors.onSurfaceVariant
@@ -1278,7 +1288,30 @@ private fun WheelFace(
             }
         }
 
-        // Direct Settings Shortcut Button (Moved comfortably above the bottom bezel & Stop button)
+        // Direct Pause / Unpause Shortcut Button (Bottom-Left: opposite of Settings)
+        GameButton(
+            icon = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
+            size = 28.dp,
+            primary = paused,
+            contentDescription = if (paused) "Unpause / Resume Game" else "Pause Game",
+            onClick = {
+                val next = !PointerBus.paused.value
+                PointerBus.paused.value = next
+                buzz(Haptics.Kind.CLICK)
+                if (next) {
+                    touchThrottle = false
+                    touchBrake = false
+                    touchNitro = false
+                    act(Action.WheelPedals(throttle = false, brake = false, nitro = false), Haptics.Kind.TICK)
+                }
+                act(Action.Press(RemoteKey.ESCAPE), Haptics.Kind.CLICK)
+            },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = 15.dp, y = (-42).dp),
+        )
+
+        // Direct Settings Shortcut Button (Bottom-Right: above the bottom bezel & Stop button)
         GameButton(
             icon = R.drawable.ic_settings,
             size = 28.dp,
