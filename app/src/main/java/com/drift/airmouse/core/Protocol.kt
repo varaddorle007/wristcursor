@@ -42,7 +42,7 @@ object Protocol {
         RemoteKey.UP -> "up"
         RemoteKey.DOWN -> "down"
         RemoteKey.OK -> "enter"
-        RemoteKey.BACK -> "esc"
+        RemoteKey.BACK -> "back"
         RemoteKey.BACKSPACE -> "backspace"
         RemoteKey.SPACE -> "space"
         RemoteKey.SHIFT -> "shift"

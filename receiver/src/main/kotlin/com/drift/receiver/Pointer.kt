@@ -25,6 +25,86 @@ class Pointer {
     private var currentGas = false
     private var currentBrake = false
     private var currentNitro = false
+    @Volatile private var targetSteer = 0f
+    @Volatile private var runningPwm = true
+
+    init {
+        kotlin.concurrent.thread(name = "drift-steering-pwm", isDaemon = true) {
+            while (runningPwm) {
+                val s = targetSteer
+                val absS = kotlin.math.abs(s)
+                if (absS <= 0.025f) {
+                    if (currentSteer != 0) {
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_LEFT)
+                            robot.keyRelease(KeyEvent.VK_A)
+                            robot.keyRelease(KeyEvent.VK_RIGHT)
+                            robot.keyRelease(KeyEvent.VK_D)
+                        }
+                        currentSteer = 0
+                    }
+                    Thread.sleep(20)
+                    continue
+                }
+
+                val periodMs = 40L
+                val duty = (absS * absS * 0.25f + absS * 0.75f).coerceIn(0.12f, 1.0f)
+
+                if (duty >= 0.88f) {
+                    if (s < 0f && currentSteer != -1) {
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_RIGHT)
+                            robot.keyRelease(KeyEvent.VK_D)
+                            robot.keyPress(KeyEvent.VK_LEFT)
+                            robot.keyPress(KeyEvent.VK_A)
+                        }
+                        currentSteer = -1
+                    } else if (s > 0f && currentSteer != 1) {
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_LEFT)
+                            robot.keyRelease(KeyEvent.VK_A)
+                            robot.keyPress(KeyEvent.VK_RIGHT)
+                            robot.keyPress(KeyEvent.VK_D)
+                        }
+                        currentSteer = 1
+                    }
+                    Thread.sleep(periodMs)
+                } else {
+                    val pressMs = (periodMs * duty).toLong().coerceIn(5L, 35L)
+                    val releaseMs = periodMs - pressMs
+
+                    if (s < 0f) {
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_RIGHT)
+                            robot.keyRelease(KeyEvent.VK_D)
+                            robot.keyPress(KeyEvent.VK_LEFT)
+                            robot.keyPress(KeyEvent.VK_A)
+                        }
+                        Thread.sleep(pressMs)
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_LEFT)
+                            robot.keyRelease(KeyEvent.VK_A)
+                        }
+                        Thread.sleep(releaseMs)
+                    } else {
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_LEFT)
+                            robot.keyRelease(KeyEvent.VK_A)
+                            robot.keyPress(KeyEvent.VK_RIGHT)
+                            robot.keyPress(KeyEvent.VK_D)
+                        }
+                        Thread.sleep(pressMs)
+                        runCatching {
+                            robot.keyRelease(KeyEvent.VK_RIGHT)
+                            robot.keyRelease(KeyEvent.VK_D)
+                        }
+                        Thread.sleep(releaseMs)
+                    }
+                    currentSteer = 0
+                }
+            }
+        }
+    }
 
     fun apply(command: String) {
         val parts = command.split(' ')
@@ -49,9 +129,35 @@ class Pointer {
                 val text = runCatching { String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8) }.getOrNull()
                 if (!text.isNullOrEmpty()) SystemKeys.type(robot, text)
             }
-            "key" -> keyToCode(parts.getOrNull(1))?.let { press(it) }
+            "key" -> {
+                val keyName = parts.getOrNull(1)
+                if (keyName == "back") {
+                    handleBack()
+                } else {
+                    keyToCode(keyName)?.let { press(it) }
+                }
+            }
             "keydown" -> keyToCode(parts.getOrNull(1))?.let { runCatching { robot.keyPress(it) } }
             "keyup" -> keyToCode(parts.getOrNull(1))?.let { runCatching { robot.keyRelease(it) } }
+        }
+    }
+
+    private fun handleBack() {
+        val isMac = System.getProperty("os.name").startsWith("Mac", ignoreCase = true)
+        if (isMac) {
+            runCatching {
+                robot.keyPress(KeyEvent.VK_META)
+                robot.keyPress(KeyEvent.VK_OPEN_BRACKET)
+                robot.keyRelease(KeyEvent.VK_OPEN_BRACKET)
+                robot.keyRelease(KeyEvent.VK_META)
+            }
+        } else {
+            runCatching {
+                robot.keyPress(KeyEvent.VK_ALT)
+                robot.keyPress(KeyEvent.VK_LEFT)
+                robot.keyRelease(KeyEvent.VK_LEFT)
+                robot.keyRelease(KeyEvent.VK_ALT)
+            }
         }
     }
 
@@ -74,11 +180,14 @@ class Pointer {
     }
 
     fun resetDriving() {
-        if (currentSteer == -1) {
-            runCatching { robot.keyRelease(KeyEvent.VK_LEFT); robot.keyRelease(KeyEvent.VK_A) }
-        } else if (currentSteer == 1) {
-            runCatching { robot.keyRelease(KeyEvent.VK_RIGHT); robot.keyRelease(KeyEvent.VK_D) }
+        targetSteer = 0f
+        runCatching {
+            robot.keyRelease(KeyEvent.VK_LEFT)
+            robot.keyRelease(KeyEvent.VK_A)
+            robot.keyRelease(KeyEvent.VK_RIGHT)
+            robot.keyRelease(KeyEvent.VK_D)
         }
+        currentSteer = 0
         if (currentGas) {
             runCatching { robot.keyRelease(KeyEvent.VK_UP); robot.keyRelease(KeyEvent.VK_W) }
         }
@@ -88,33 +197,13 @@ class Pointer {
         if (currentNitro) {
             runCatching { robot.keyRelease(KeyEvent.VK_SPACE) }
         }
-        currentSteer = 0
         currentGas = false
         currentBrake = false
         currentNitro = false
     }
 
     private fun applyWheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {
-        val steerDir = when {
-            steer < -0.15f -> -1
-            steer > 0.15f -> 1
-            else -> 0
-        }
-
-        // Steer Left / Right (Arrow keys and A/D keys)
-        if (steerDir != currentSteer) {
-            if (currentSteer == -1) {
-                runCatching { robot.keyRelease(KeyEvent.VK_LEFT); robot.keyRelease(KeyEvent.VK_A) }
-            } else if (currentSteer == 1) {
-                runCatching { robot.keyRelease(KeyEvent.VK_RIGHT); robot.keyRelease(KeyEvent.VK_D) }
-            }
-            if (steerDir == -1) {
-                runCatching { robot.keyPress(KeyEvent.VK_LEFT); robot.keyPress(KeyEvent.VK_A) }
-            } else if (steerDir == 1) {
-                runCatching { robot.keyPress(KeyEvent.VK_RIGHT); robot.keyPress(KeyEvent.VK_D) }
-            }
-            currentSteer = steerDir
-        }
+        targetSteer = steer
 
         // Throttle (Up / W)
         if (throttle != currentGas) {

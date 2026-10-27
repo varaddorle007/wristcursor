@@ -119,6 +119,9 @@ object PointerBus {
     /** True while a pinch-and-hold keeps the mouse button down. */
     val holding = MutableStateFlow(false)
 
+    /** Active wrist tilt scroll in mouse mode: -1 = up, 0 = neutral, 1 = down. */
+    val mouseScrollState = MutableStateFlow(0)
+
     /** A wrist shake, with what it should do; the steering screen acts on it. */
     val shakes = MutableSharedFlow<ShakeAction>(extraBufferCapacity = 1)
 
@@ -180,6 +183,17 @@ class PointerService : Service(), SensorEventListener {
     private var lastWheelNanos = 0L
     private var pinch = PinchDetector(PinchDetector.DEFAULT_THRESHOLD)
     private var shake = ShakeDetector(2)
+    private var knock = KnockDetector()
+    private var pull = PullDetector()
+    private var mouseGravX = 0f
+    private var mouseGravY = 0f
+    private var mouseGravZ = 9.8f
+    private var lastMouseScrollMs = 0L
+    private var lastWheelSentMs = 0L
+    private var lastSentSteer = 0f
+    private var lastSentThrottle = false
+    private var lastSentBrake = false
+    private var lastSentNitro = false
     private var calibration: Calibration? = null
     private var lastPeakLogMs = 0L
     private var connected = false
@@ -399,7 +413,12 @@ class PointerService : Service(), SensorEventListener {
         val mode = PointerBus.mode.value
         setGyro(connected && mode == Mode.MOUSE)
         setWheelSensing(connected && mode == Mode.GAME)
-        setAccelerometer(connected && (pinchActive() || tuning.shake != ShakeAction.OFF))
+        val needAccel = pinchActive() ||
+                        tuning.shake != ShakeAction.OFF ||
+                        (mode == Mode.MOUSE && tuning.wristScroll) ||
+                        tuning.doubleKnock != KnockAction.OFF ||
+                        tuning.pullPull != PullAction.OFF
+        setAccelerometer(connected && needAccel)
     }
 
     private fun pinchActive() = tuning.pinch && PointerBus.mode.value in PINCH_MODES
@@ -465,6 +484,11 @@ class PointerService : Service(), SensorEventListener {
         if (on) {
             pinch.reset()
             shake.reset()
+            knock.reset()
+            pull.reset()
+            mouseGravX = 0f
+            mouseGravY = 0f
+            mouseGravZ = 9.8f
             // Pinches are short jolts: always sample fast enough to catch them.
             sensors.registerListener(this, accel, PINCH_SAMPLING_US, 0, motion)
         } else {
@@ -493,6 +517,8 @@ class PointerService : Service(), SensorEventListener {
             holdEnabled = next.pinchHold != PinchAction.NOTHING,
         )
         shake = ShakeDetector(next.shakeSensitivity)
+        knock.reset()
+        pull.reset()
         if (gyroOn && rateChanged) setGyro(false)
         refreshSensing()
     }
@@ -594,12 +620,23 @@ class PointerService : Service(), SensorEventListener {
         val activeBrake = gyroBrake || PointerBus.wheelBrake.value
         val activeNitro = PointerBus.wheelNitro.value
 
-        link?.wheel(
-            steer = steer,
-            throttle = activeThrottle,
-            brake = activeBrake,
-            nitro = activeNitro
-        )
+        val pedalChanged = activeThrottle != lastSentThrottle || activeBrake != lastSentBrake || activeNitro != lastSentNitro
+        val steerChanged = kotlin.math.abs(steer - lastSentSteer) >= 0.012f
+        val timeElapsed = now - lastWheelSentMs >= 20L
+
+        if (pedalChanged || (steerChanged && now - lastWheelSentMs >= 15L) || timeElapsed) {
+            link?.wheel(
+                steer = steer,
+                throttle = activeThrottle,
+                brake = activeBrake,
+                nitro = activeNitro
+            )
+            lastWheelSentMs = now
+            lastSentSteer = steer
+            lastSentThrottle = activeThrottle
+            lastSentBrake = activeBrake
+            lastSentNitro = activeNitro
+        }
         lastActivityMs = now
     }
 
@@ -627,8 +664,8 @@ class PointerService : Service(), SensorEventListener {
         val ry = event.values[1] - (bias?.biasY ?: 0f)
         val rz = event.values[2] - (bias?.biasZ ?: 0f)
         pinch.onTurnRate(sqrt(rx * rx + ry * ry + rz * rz))
-        // Hold the cursor still while a finger is on the pad or a pinch is being read.
-        if (PointerBus.frozen || pinch.waiting || PointerBus.paused.value) {
+        // Hold the cursor still while a finger is on the pad, a pinch is being read, or wrist is tilt-scrolling.
+        if (PointerBus.frozen || pinch.waiting || PointerBus.paused.value || PointerBus.mouseScrollState.value != 0) {
             filter.reset()
             pendingX = 0f
             pendingY = 0f
@@ -661,7 +698,78 @@ class PointerService : Service(), SensorEventListener {
             lastActivityMs = now
             Haptics.buzz(this, tuning.vibration, Haptics.Kind.HEAVY)
             PointerBus.shakes.tryEmit(tuning.shake)
+            if (tuning.shake == ShakeAction.BACK && PointerBus.mode.value == Mode.MOUSE) {
+                perform(Action.Press(RemoteKey.BACK))
+            }
             return
+        }
+
+        // Double Knock gesture
+        if (tuning.doubleKnock != KnockAction.OFF && knock.onAcceleration(x, y, z, event.timestamp)) {
+            Log.d(TAG, "double knock: ${tuning.doubleKnock.name.lowercase()}")
+            lastActivityMs = now
+            Haptics.buzz(this, tuning.vibration, Haptics.Kind.CLICK)
+            when (tuning.doubleKnock) {
+                KnockAction.CLICK -> perform(Action.Click)
+                KnockAction.RIGHT_CLICK -> perform(Action.RightClick)
+                KnockAction.DOUBLE_CLICK -> perform(Action.DoubleClick)
+                KnockAction.PAUSE -> PointerBus.paused.value = !PointerBus.paused.value
+                KnockAction.BACK -> perform(Action.Press(RemoteKey.BACK))
+                KnockAction.PLAY_PAUSE -> perform(Action.Press(RemoteKey.PLAY_PAUSE))
+                KnockAction.ENTER -> perform(Action.Press(RemoteKey.OK))
+                KnockAction.OFF -> Unit
+            }
+            return
+        }
+
+        // Pull-pull gesture
+        if (tuning.pullPull != PullAction.OFF && pull.onAcceleration(x, y, z, event.timestamp)) {
+            Log.d(TAG, "pull-pull: ${tuning.pullPull.name.lowercase()}")
+            lastActivityMs = now
+            Haptics.buzz(this, tuning.vibration, Haptics.Kind.CLICK)
+            when (tuning.pullPull) {
+                PullAction.BACK -> perform(Action.Press(RemoteKey.BACK))
+                PullAction.SCROLL_TOP -> perform(Action.Scroll(if (tuning.reverseScroll) 400f else -400f))
+                PullAction.PAUSE -> PointerBus.paused.value = !PointerBus.paused.value
+                PullAction.CLICK -> perform(Action.Click)
+                PullAction.STOP -> stopWithNote("Stopped by pull-pull gesture")
+                PullAction.OFF -> Unit
+            }
+            return
+        }
+
+        // Wrist Tilt Scroll in Mouse Mode
+        if (PointerBus.mode.value == Mode.MOUSE && tuning.wristScroll && !PointerBus.paused.value) {
+            mouseGravX += (x - mouseGravX) * 0.12f
+            mouseGravY += (y - mouseGravY) * 0.12f
+            mouseGravZ += (z - mouseGravZ) * 0.12f
+            val pitchDeg = Math.toDegrees(kotlin.math.atan2(-mouseGravY.toDouble(), kotlin.math.sqrt((mouseGravX * mouseGravX + mouseGravZ * mouseGravZ).toDouble()))).toFloat()
+
+            if (pitchDeg > 15f) {
+                PointerBus.mouseScrollState.value = -1
+                val excess = (pitchDeg - 15f).coerceIn(0f, 30f)
+                val intervalMs = (210 - (tuning.scrollSpeed * 14) - excess * 2.5f).toLong().coerceIn(35L, 220L)
+                if (now - lastMouseScrollMs >= intervalMs) {
+                    val step = if (tuning.reverseScroll) 1 else -1
+                    link?.scroll(step)
+                    Haptics.buzz(this, tuning.vibration, Haptics.Kind.TICK)
+                    lastMouseScrollMs = now
+                }
+            } else if (pitchDeg < -15f) {
+                PointerBus.mouseScrollState.value = 1
+                val excess = (kotlin.math.abs(pitchDeg) - 15f).coerceIn(0f, 30f)
+                val intervalMs = (210 - (tuning.scrollSpeed * 14) - excess * 2.5f).toLong().coerceIn(35L, 220L)
+                if (now - lastMouseScrollMs >= intervalMs) {
+                    val step = if (tuning.reverseScroll) -1 else 1
+                    link?.scroll(step)
+                    Haptics.buzz(this, tuning.vibration, Haptics.Kind.TICK)
+                    lastMouseScrollMs = now
+                }
+            } else {
+                PointerBus.mouseScrollState.value = 0
+            }
+        } else if (PointerBus.mouseScrollState.value != 0) {
+            PointerBus.mouseScrollState.value = 0
         }
         // The watch's own buzz jolts the wrist like a pinch: skip it, or one pinch clicks again and again.
         pinch.muteUntil(Haptics.shakingUntilNanos)

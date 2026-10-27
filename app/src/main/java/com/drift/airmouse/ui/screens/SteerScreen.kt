@@ -188,7 +188,14 @@ fun SteerScreen(
     LaunchedEffect(Unit) {
         PointerBus.shakes.collect { action ->
             when (action) {
-                ShakeAction.BACK -> onBack()
+                ShakeAction.BACK -> {
+                    if (mode == Mode.MOUSE) {
+                        key(RemoteKey.BACK, Haptics.Kind.CLICK)
+                    } else {
+                        onBack()
+                    }
+                }
+                ShakeAction.APP_BACK -> onBack()
                 ShakeAction.STOP -> onStop()
                 ShakeAction.PAUSE -> PointerBus.paused.value = !PointerBus.paused.value
                 ShakeAction.OFF -> Unit
@@ -302,6 +309,7 @@ private fun MouseFace(
     val paused by PointerBus.paused.collectAsState()
     val holding by PointerBus.holding.collectAsState()
     val pulse by PointerBus.clickPulse.collectAsState()
+    val scrollState by PointerBus.mouseScrollState.collectAsState()
     var pressed by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
     val flash = remember { Animatable(0f) }
@@ -376,14 +384,34 @@ private fun MouseFace(
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                connectedTo?.let {
-                    Text("→ $it", color = colors.onSurface, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                if (scrollState != 0) {
+                    val isUp = scrollState < 0
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(colors.primaryContainer)
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = if (isUp) "▲ SCROLL UP" else "▼ SCROLL DOWN",
+                            color = colors.onPrimaryContainer,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
+                    Spacer(Modifier.height(3.dp))
+                } else {
+                    connectedTo?.let {
+                        Text("→ $it", color = colors.onSurface, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
-                Spacer(Modifier.height(4.dp))
                 MouseLogo(accent, flash.value)
                 Spacer(Modifier.height(4.dp))
                 Caption(
                     when {
+                        scrollState < 0 -> "Scrolling up\nTilt neutral to stop"
+                        scrollState > 0 -> "Scrolling down\nTilt neutral to stop"
                         paused -> if (tuning.shake == ShakeAction.PAUSE) "Paused\nShake to resume" else "Paused"
                         grabbed -> "Holding\nLet go to drop"
                         tuning.pinch -> "1 pinch: ${tuning.pinchOnce.label.lowercase()}\n2 pinches: ${tuning.pinchTwice.label.lowercase()}"

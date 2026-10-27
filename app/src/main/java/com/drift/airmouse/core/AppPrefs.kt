@@ -51,12 +51,39 @@ enum class PinchAction(val label: String) {
 
 /** What shaking your wrist does while steering. */
 enum class ShakeAction(val label: String) {
-    BACK("Go back"),
+    BACK("Browser back"),
+    APP_BACK("Watch menu back"),
     PAUSE("Pause cursor"),
     STOP("Stop steering"),
     OFF("Off");
 
     val next: ShakeAction get() = entries[(ordinal + 1) % entries.size]
+}
+
+/** Action for double knocking on watch or wrist. */
+enum class KnockAction(val label: String) {
+    OFF("Off"),
+    CLICK("Left click"),
+    RIGHT_CLICK("Right click"),
+    DOUBLE_CLICK("Double click"),
+    PAUSE("Pause cursor"),
+    BACK("Browser back"),
+    PLAY_PAUSE("Play / pause"),
+    ENTER("Enter key");
+
+    val next: KnockAction get() = entries[(ordinal + 1) % entries.size]
+}
+
+/** Action for pulling arm backwards twice in quick succession. */
+enum class PullAction(val label: String) {
+    BACK("Browser back"),
+    SCROLL_TOP("Scroll to top"),
+    PAUSE("Pause cursor"),
+    CLICK("Left click"),
+    STOP("Stop steering"),
+    OFF("Off");
+
+    val next: PullAction get() = entries[(ordinal + 1) % entries.size]
 }
 
 /** How often the gyroscope is read. Faster feels smoother; slower saves battery. */
@@ -105,6 +132,9 @@ data class Tuning(
     val wheelSensitivity: Int = 5,        // 1..10 (steering speed / sensitivity)
     val wheelTiltPedals: Boolean = false, // false = touch / WASD pedals only (no false triggers!)
     val wheelBezelSteer: Boolean = true,  // true = rotating bezel turns steering wheel
+    val wristScroll: Boolean = true,      // tilt wrist up to scroll up, down to scroll down
+    val doubleKnock: KnockAction = KnockAction.OFF, // double knock on watch/wrist
+    val pullPull: PullAction = PullAction.BACK,     // pull arm backwards twice
 ) {
     val haptics: Boolean get() = vibration != Vibration.OFF
 }
@@ -190,6 +220,9 @@ class AppPrefs private constructor(context: Context) {
             putInt(KEY_WHEEL_SENSITIVITY, next.wheelSensitivity)
             putBoolean(KEY_WHEEL_TILT_PEDALS, next.wheelTiltPedals)
             putBoolean(KEY_WHEEL_BEZEL_STEER, next.wheelBezelSteer)
+            putBoolean(KEY_WRIST_SCROLL, next.wristScroll)
+            putInt(KEY_DOUBLE_KNOCK, next.doubleKnock.ordinal)
+            putInt(KEY_PULL_PULL, next.pullPull.ordinal)
         }
         tuningState.value = next
     }
@@ -282,6 +315,9 @@ class AppPrefs private constructor(context: Context) {
             wheelSensitivity = prefs.getInt(KEY_WHEEL_SENSITIVITY, defaults.wheelSensitivity).coerceIn(1, 10),
             wheelTiltPedals = prefs.getBoolean(KEY_WHEEL_TILT_PEDALS, defaults.wheelTiltPedals),
             wheelBezelSteer = prefs.getBoolean(KEY_WHEEL_BEZEL_STEER, defaults.wheelBezelSteer),
+            wristScroll = prefs.getBoolean(KEY_WRIST_SCROLL, defaults.wristScroll),
+            doubleKnock = readEnum(KEY_DOUBLE_KNOCK, defaults.doubleKnock),
+            pullPull = readEnum(KEY_PULL_PULL, defaults.pullPull),
         )
     }
 
@@ -355,6 +391,9 @@ class AppPrefs private constructor(context: Context) {
         private const val KEY_WHEEL_SENSITIVITY = "wheel_sensitivity"
         private const val KEY_WHEEL_TILT_PEDALS = "wheel_tilt_pedals"
         private const val KEY_WHEEL_BEZEL_STEER = "wheel_bezel_steer"
+        private const val KEY_WRIST_SCROLL = "wrist_scroll"
+        private const val KEY_DOUBLE_KNOCK = "double_knock"
+        private const val KEY_PULL_PULL = "pull_pull"
         private const val BINDING_PREFIX = "bind."
         private const val KEY_DIM = "dim_screen"
         private const val KEY_AUTO_STOP = "auto_stop"

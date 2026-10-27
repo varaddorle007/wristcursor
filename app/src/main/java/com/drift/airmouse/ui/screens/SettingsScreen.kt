@@ -18,7 +18,9 @@ import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import com.drift.airmouse.core.AppPrefs
 import com.drift.airmouse.core.Haptics
+import com.drift.airmouse.core.KnockAction
 import com.drift.airmouse.core.PinchAction
+import com.drift.airmouse.core.PullAction
 import com.drift.airmouse.core.ShakeAction
 import com.drift.airmouse.core.Vibration
 import com.drift.airmouse.core.Power
@@ -93,6 +95,12 @@ fun SettingsScreen(
             RowButton("Shake wrist", { update { it.copy(shake = it.shake.next) } }, secondary = tuning.shake.label)
         }
         if (tuning.shake != ShakeAction.OFF) knobRow(Knob.SHAKE, tuning, onKnob)
+        item {
+            RowButton("Double knock", { update { it.copy(doubleKnock = it.doubleKnock.next) } }, secondary = tuning.doubleKnock.label)
+        }
+        item {
+            RowButton("Pull-pull", { update { it.copy(pullPull = it.pullPull.next) } }, secondary = tuning.pullPull.label)
+        }
 
         section("Touchpad")
         knobRow(Knob.TOUCH_SPEED, tuning, onKnob)
@@ -139,6 +147,11 @@ fun SettingsScreen(
 
         section("Clicks & scroll")
         knobRow(Knob.SCROLL, tuning, onKnob)
+        item {
+            Toggle("Wrist tilt scroll", "Tilt wrist up to scroll up, down to scroll down", tuning.wristScroll) { on ->
+                update { it.copy(wristScroll = on) }
+            }
+        }
         item {
             Toggle("Reverse scroll", "Turn the other way", tuning.reverseScroll) { on ->
                 update { it.copy(reverseScroll = on) }

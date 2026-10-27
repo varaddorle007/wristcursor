@@ -58,6 +58,7 @@ class HidLink(
     private var lastWheelX = 0
     private var lastWheelButtons = 0
     private var lastWheelKeys = IntArray(6)
+    private var lastWheelReportNanos = 0L
 
     private val flushRunnable = Runnable {
         flushScheduled = false
@@ -116,6 +117,7 @@ class HidLink(
 
     override fun wheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {
         val device = host ?: return
+        val now = SystemClock.elapsedRealtimeNanos()
         val x = (steer * HidReports.MAX_DELTA).toInt().coerceIn(-HidReports.MAX_DELTA, HidReports.MAX_DELTA)
         val y = when {
             throttle -> 32767
@@ -127,18 +129,20 @@ class HidLink(
         if (brake) btn = btn or 0x02
         if (nitro) btn = btn or 0x04
 
-        // 1. Send Gamepad HID report (Report ID 4)
-        if (x != lastWheelX || btn != lastWheelButtons) {
+        // 1. Send Gamepad HID report (Report ID 4) rate-limited to 50 Hz (20ms gap) unless buttons changed
+        val buttonsChanged = btn != lastWheelButtons
+        if (buttonsChanged || now - lastWheelReportNanos >= 18_000_000L) {
             lastWheelX = x
             lastWheelButtons = btn
+            lastWheelReportNanos = now
             HidReports.encodeGamepad(gamepadReport, x, y, btn)
             hid?.sendReport(device, HidReports.GAMEPAD_ID, gamepadReport)
         }
 
-        // 2. Send keyboard arrow keys / space so games expecting keyboard steer instantly
+        // 2. Send keyboard arrow keys / space with instant low deadzone (0.05) so games expecting keyboard steer crisply
         val keySteer = when {
-            steer < -0.18f -> HidReports.KEY_LEFT
-            steer > 0.18f -> HidReports.KEY_RIGHT
+            steer < -0.05f -> HidReports.KEY_LEFT
+            steer > 0.05f -> HidReports.KEY_RIGHT
             else -> 0
         }
         val keyThrottle = if (throttle) 0x52 else 0 // Up Arrow
