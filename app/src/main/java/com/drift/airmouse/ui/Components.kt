@@ -1,6 +1,7 @@
 package com.drift.airmouse.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,13 +54,25 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun Wordmark(modifier: Modifier = Modifier, size: Int = 34) {
-    Text(
-        text = "Drift",
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
         modifier = modifier,
-        color = MaterialTheme.colorScheme.primary,
-        fontFamily = BrandFont,
-        fontSize = size.sp,
-    )
+    ) {
+        Image(
+            painter = painterResource(R.drawable.app_logo),
+            contentDescription = "Drift Logo",
+            modifier = Modifier
+                .size((size * 1.15f).dp)
+                .padding(end = 5.dp),
+        )
+        Text(
+            text = "Drift",
+            color = MaterialTheme.colorScheme.primary,
+            fontFamily = BrandFont,
+            fontSize = size.sp,
+        )
+    }
 }
 
 @Composable
