@@ -11,7 +11,7 @@ class WheelSteeringTest {
         rawAngleDeg: Float,
         centerAngleDeg: Float,
         rightWrist: Boolean = false,
-        deadzone: Float = 2.5f,
+        deadzone: Float = 2.0f,
         maxAngle: Float = 60.0f,
     ): Float {
         var delta = rawAngleDeg - centerAngleDeg
@@ -24,10 +24,50 @@ class WheelSteeringTest {
         return if (absDelta <= deadzone) {
             0f
         } else {
-            val effective = (absDelta - deadzone) / (maxAngle - deadzone)
+            val u = ((absDelta - deadzone) / (maxAngle - deadzone)).coerceIn(0f, 1f)
+            val curved = 0.85f * u + 0.15f * u * u
             val sign = if (delta > 0f) 1f else -1f
-            (effective.coerceIn(0f, 1f) * sign)
+            curved * sign
         }
+    }
+
+    private fun projectVectorAngle(upX: Float, upY: Float): Float {
+        return Math.toDegrees(kotlin.math.atan2(-upX.toDouble(), upY.toDouble())).toFloat()
+    }
+
+    @Test
+    fun vectorProjectionHandlesVerticalTiltWithoutGimbalLock() {
+        // Vertical wheel level (straight)
+        val level = projectVectorAngle(0f, 1f)
+        assertEquals(0f, level, 0.001f)
+
+        // Turn right 45 deg (upX = -0.707, upY = 0.707)
+        val right45 = projectVectorAngle(-0.7071f, 0.7071f)
+        assertEquals(45f, right45, 0.1f)
+
+        // Turn left 45 deg (upX = 0.707, upY = 0.707)
+        val left45 = projectVectorAngle(0.7071f, 0.7071f)
+        assertEquals(-45f, left45, 0.1f)
+    }
+
+    @Test
+    fun oneEuroFilterEliminatesTremorAndMaintainsDynamicTracking() {
+        val filter = OneEuroFilter(minCutoff = 3.2f, beta = 0.08f)
+        val dt = 0.01f // 100 Hz
+
+        // 1. Static input with 0.5 deg micro-tremor
+        var smoothed = 0f
+        for (i in 0 until 50) {
+            val noise = if (i % 2 == 0) 0.5f else -0.5f
+            smoothed = filter.filter(10f + noise, dt)
+        }
+        // Tremor should be heavily damped
+        assertTrue("Tremor should be smoothed", abs(smoothed - 10f) < 0.2f)
+
+        // 2. Sudden cornering step: filter ramps rapidly without lag
+        val start = smoothed
+        val step = filter.filter(30f, dt)
+        assertTrue("Filter responds immediately to fast turns", step > start + 3f)
     }
 
     @Test

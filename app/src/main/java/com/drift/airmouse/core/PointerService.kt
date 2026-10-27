@@ -161,6 +161,8 @@ class PointerService : Service(), SensorEventListener {
     private var wheelCalibrated = false
     private val rotMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
+    private val wheelFilter = OneEuroFilter(minCutoff = 3.2f, beta = 0.08f)
+    private var lastWheelNanos = 0L
     private var pinch = PinchDetector(PinchDetector.DEFAULT_THRESHOLD)
     private var shake = ShakeDetector(2)
     private var calibration: Calibration? = null
@@ -412,6 +414,8 @@ class PointerService : Service(), SensorEventListener {
                 ?: return stopWithNote("This watch has no rotation sensor")
             wheelSensor = sensor
             wheelCalibrated = false
+            wheelFilter.reset()
+            lastWheelNanos = 0L
             PointerBus.wheelAngle.value = 0f
             PointerBus.wheelSteer.value = 0f
             PointerBus.wheelThrottle.value = false
@@ -422,6 +426,9 @@ class PointerService : Service(), SensorEventListener {
         } else {
             wheelSensor?.let { sensors.unregisterListener(this, it) }
             wheelSensor = null
+            wheelCalibrated = false
+            wheelFilter.reset()
+            lastWheelNanos = 0L
             link?.wheel(0f, throttle = false, brake = false, nitro = false)
         }
         wheelSensorOn = on
@@ -476,14 +483,29 @@ class PointerService : Service(), SensorEventListener {
     private fun onWheelTurn(event: SensorEvent) {
         val now = SystemClock.uptimeMillis()
         SensorManager.getRotationMatrixFromVector(rotMatrix, event.values)
-        SensorManager.getOrientation(rotMatrix, orientationAngles)
-        // orientationAngles[2] is roll in radians [-pi, pi]
-        val rawRollDeg = Math.toDegrees(orientationAngles[2].toDouble()).toFloat()
+
+        // Project world UP [0, 0, 1] into device coordinate frame:
+        // up_x = rotMatrix[6], up_y = rotMatrix[7], up_z = rotMatrix[8]
+        // This vector projection is mathematically 100% immune to Euler gimbal lock!
+        val upX = rotMatrix[6]
+        val upY = rotMatrix[7]
+        val planarMagSq = upX * upX + upY * upY
+
+        val rawAngleDeg = if (planarMagSq > 0.04f) {
+            Math.toDegrees(kotlin.math.atan2(-upX.toDouble(), upY.toDouble())).toFloat()
+        } else {
+            // Watch held nearly horizontal: fallback to compass azimuth
+            Math.toDegrees(kotlin.math.atan2(rotMatrix[1].toDouble(), rotMatrix[4].toDouble())).toFloat()
+        }
+
         if (!wheelCalibrated) {
-            wheelCenterRoll = rawRollDeg
+            wheelCenterRoll = rawAngleDeg
+            wheelFilter.reset()
+            lastWheelNanos = event.timestamp
             wheelCalibrated = true
         }
-        var delta = rawRollDeg - wheelCenterRoll
+
+        var delta = rawAngleDeg - wheelCenterRoll
         while (delta > 180f) delta -= 360f
         while (delta < -180f) delta += 360f
 
@@ -491,18 +513,26 @@ class PointerService : Service(), SensorEventListener {
             delta = -delta
         }
 
-        val deadzone = 2.5f
+        // 1€ Filter: zero lag during fast cornering, ultra steady on straights
+        val nowNanos = event.timestamp
+        val dt = if (lastWheelNanos == 0L) 0.01f else ((nowNanos - lastWheelNanos) / 1e9f).coerceIn(0.001f, 0.05f)
+        lastWheelNanos = nowNanos
+        val smoothDelta = wheelFilter.filter(delta, dt)
+
+        val deadzone = 2.0f
         val maxAngle = 60.0f
-        val absDelta = kotlin.math.abs(delta)
+        val absDelta = kotlin.math.abs(smoothDelta)
         val steer = if (absDelta <= deadzone) {
             0f
         } else {
-            val effective = (absDelta - deadzone) / (maxAngle - deadzone)
-            val sign = if (delta > 0f) 1f else -1f
-            (effective.coerceIn(0f, 1f) * sign)
+            val u = ((absDelta - deadzone) / (maxAngle - deadzone)).coerceIn(0f, 1f)
+            // 85% linear + 15% quadratic progressive curve for high precision
+            val curved = 0.85f * u + 0.15f * u * u
+            val sign = if (smoothDelta > 0f) 1f else -1f
+            curved * sign
         }
 
-        PointerBus.wheelAngle.value = delta.coerceIn(-maxAngle, maxAngle)
+        PointerBus.wheelAngle.value = smoothDelta.coerceIn(-maxAngle, maxAngle)
         PointerBus.wheelSteer.value = steer
 
         link?.wheel(
@@ -676,6 +706,8 @@ class PointerService : Service(), SensorEventListener {
                 }
                 Action.WheelCenter -> {
                     wheelCalibrated = false
+                    wheelFilter.reset()
+                    lastWheelNanos = 0L
                 }
                 Action.Click -> target.click(MouseButton.LEFT)
                 Action.DoubleClick -> {

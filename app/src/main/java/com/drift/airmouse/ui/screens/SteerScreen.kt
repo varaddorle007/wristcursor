@@ -596,6 +596,12 @@ private fun WheelFace(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            act(Action.WheelPedals(throttle = false, brake = false, nitro = false), Haptics.Kind.TICK)
+        }
+    }
+
     fun updatePedals(gas: Boolean, brk: Boolean, ntr: Boolean) {
         if (gas != throttle || brk != brake || ntr != nitro) {
             throttle = gas
@@ -646,7 +652,9 @@ private fun WheelFace(
                             act(Action.WheelCenter, Haptics.Kind.CLICK)
                         }
 
-                        updatePedals(anyGas, anyBrake, false)
+                        val gasDown = anyGas && !anyCenter
+                        val brakeDown = anyBrake && !anyCenter
+                        updatePedals(gasDown, brakeDown, false)
                     }
                 }
             },
