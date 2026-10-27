@@ -75,11 +75,20 @@ sealed interface Action {
     /** Cursor to the middle of the screen (Wi-Fi only). */
     data object Center : Action
 
+    /** Continuous key down (press and hold) for games. */
+    data class KeyDown(val key: RemoteKey) : Action
+
+    /** Continuous key up (release) for games. */
+    data class KeyUp(val key: RemoteKey) : Action
+
     /** Pedal states for car controller mode: throttle, brake, nitro. */
     data class WheelPedals(val throttle: Boolean, val brake: Boolean, val nitro: Boolean) : Action
 
     /** Recalibrates zero steering angle to current wrist position. */
     data object WheelCenter : Action
+
+    /** Turning physical rotating bezel to steer. */
+    data class WheelBezelDelta(val deltaAngle: Float) : Action
 }
 
 /** Shared state between the screens and the service. */
@@ -163,6 +172,8 @@ class PointerService : Service(), SensorEventListener {
     private var wheelCenterRoll = 0f
     private var wheelCenterPitch = 0f
     private var wheelCalibrated = false
+    private val calRotMatrix = FloatArray(9)
+    private var bezelSteerAngle = 0f
     private val rotMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
     private val wheelFilter = OneEuroFilter(minCutoff = 3.2f, beta = 0.08f)
@@ -418,6 +429,7 @@ class PointerService : Service(), SensorEventListener {
                 ?: return stopWithNote("This watch has no rotation sensor")
             wheelSensor = sensor
             wheelCalibrated = false
+            bezelSteerAngle = 0f
             wheelFilter.reset()
             lastWheelNanos = 0L
             PointerBus.wheelAngle.value = 0f
@@ -434,6 +446,7 @@ class PointerService : Service(), SensorEventListener {
             wheelSensor?.let { sensors.unregisterListener(this, it) }
             wheelSensor = null
             wheelCalibrated = false
+            bezelSteerAngle = 0f
             wheelFilter.reset()
             lastWheelNanos = 0L
             PointerBus.wheelAngle.value = 0f
@@ -496,70 +509,82 @@ class PointerService : Service(), SensorEventListener {
         val now = SystemClock.uptimeMillis()
         SensorManager.getRotationMatrixFromVector(rotMatrix, event.values)
 
-        // Project world UP [0, 0, 1] into device coordinate frame:
-        // up_x = rotMatrix[6], up_y = rotMatrix[7], up_z = rotMatrix[8]
-        // This vector projection is mathematically 100% immune to Euler gimbal lock!
-        val upX = rotMatrix[6]
-        val upY = rotMatrix[7]
-        val planarMagSq = upX * upX + upY * upY
-
-        val rawAngleDeg = if (planarMagSq > 0.04f) {
-            Math.toDegrees(kotlin.math.atan2(-upX.toDouble(), upY.toDouble())).toFloat()
-        } else {
-            // Watch held nearly horizontal: fallback to compass azimuth
-            Math.toDegrees(kotlin.math.atan2(rotMatrix[1].toDouble(), rotMatrix[4].toDouble())).toFloat()
-        }
-
-        // Pitch calculation using orientation angles
-        SensorManager.getOrientation(rotMatrix, orientationAngles)
-        val rawPitchDeg = Math.toDegrees(orientationAngles[1].toDouble()).toFloat()
-
         if (!wheelCalibrated) {
-            wheelCenterRoll = rawAngleDeg
-            wheelCenterPitch = rawPitchDeg
+            System.arraycopy(rotMatrix, 0, calRotMatrix, 0, 9)
+            SensorManager.getOrientation(rotMatrix, orientationAngles)
+            wheelCenterPitch = orientationAngles[1]
+            wheelCenterRoll = orientationAngles[2]
             wheelFilter.reset()
             lastWheelNanos = event.timestamp
             wheelCalibrated = true
         }
 
-        var delta = rawAngleDeg - wheelCenterRoll
-        while (delta > 180f) delta -= 360f
-        while (delta < -180f) delta += 360f
+        // Calibrated 3D vectors in world coordinate space:
+        // Normal to watch face (pointing straight out of the glass):
+        val nCalX = calRotMatrix[2]
+        val nCalY = calRotMatrix[5]
+        val nCalZ = calRotMatrix[8]
+
+        // 12 o'clock vector at calibration (pointing along forearm toward hand):
+        val uCalX = calRotMatrix[1]
+        val uCalY = calRotMatrix[4]
+        val uCalZ = calRotMatrix[7]
+
+        // Current 12 o'clock vector:
+        val uNowX = rotMatrix[1]
+        val uNowY = rotMatrix[4]
+        val uNowZ = rotMatrix[7]
+
+        // Cross product (uCal x uNow):
+        val crossX = uCalY * uNowZ - uCalZ * uNowY
+        val crossY = uCalZ * uNowX - uCalX * uNowZ
+        val crossZ = uCalX * uNowY - uCalY * uNowX
+
+        // Dot with calibrated normal (sin of steering rotation on the driver's steering plane):
+        val sinAngle = crossX * nCalX + crossY * nCalY + crossZ * nCalZ
+        // Dot product (uCal . uNow) (cos of steering rotation):
+        val cosAngle = uCalX * uNowX + uCalY * uNowY + uCalZ * uNowZ
+
+        var rawAngleDeg = Math.toDegrees(kotlin.math.atan2(sinAngle.toDouble(), cosAngle.toDouble())).toFloat()
 
         if (tuning.rightWrist) {
-            delta = -delta
+            rawAngleDeg = -rawAngleDeg
         }
 
         // 1€ Filter: zero lag during fast cornering, ultra steady on straights
         val nowNanos = event.timestamp
         val dt = if (lastWheelNanos == 0L) 0.01f else ((nowNanos - lastWheelNanos) / 1e9f).coerceIn(0.001f, 0.05f)
         lastWheelNanos = nowNanos
-        val smoothDelta = wheelFilter.filter(delta, dt)
+        val smoothWristDelta = wheelFilter.filter(rawAngleDeg, dt)
 
-        val deadzone = 2.0f
-        val maxAngle = 60.0f
-        val absDelta = kotlin.math.abs(smoothDelta)
+        // Include physical rotating bezel steering contribution
+        val totalDelta = smoothWristDelta + bezelSteerAngle
+
+        // Sensitivity: 1 = wide (80° lock), 5 = standard (55° lock), 10 = snap (30° lock)
+        val maxAngle = 30f + (10 - tuning.wheelSensitivity) * 5f
+        val deadzone = 1.5f
+        val absDelta = kotlin.math.abs(totalDelta)
         val steer = if (absDelta <= deadzone) {
             0f
         } else {
             val u = ((absDelta - deadzone) / (maxAngle - deadzone)).coerceIn(0f, 1f)
-            // 85% linear + 15% quadratic progressive curve for high precision
-            val curved = 0.85f * u + 0.15f * u * u
-            val sign = if (smoothDelta > 0f) 1f else -1f
+            // 80% linear + 20% progressive curve for high precision
+            val curved = 0.80f * u + 0.20f * u * u
+            val sign = if (totalDelta > 0f) 1f else -1f
             curved * sign
         }
 
-        var deltaPitch = rawPitchDeg - wheelCenterPitch
+        // Pitch tilt driving (ONLY active if explicitly enabled in Settings):
+        SensorManager.getOrientation(rotMatrix, orientationAngles)
+        val rawPitchDeg = Math.toDegrees(orientationAngles[1].toDouble()).toFloat()
+        var deltaPitch = rawPitchDeg - Math.toDegrees(wheelCenterPitch.toDouble()).toFloat()
         while (deltaPitch > 180f) deltaPitch -= 360f
         while (deltaPitch < -180f) deltaPitch += 360f
 
-        // Pitch tilt driving:
-        // Tilting wrist forward (top down) -> Gas
-        // Tilting wrist backward (pulling up) -> Brake
-        val gyroGas = deltaPitch < -14f
-        val gyroBrake = deltaPitch > 14f
+        val gyroGas = tuning.wheelTiltPedals && deltaPitch < -24f
+        val gyroBrake = tuning.wheelTiltPedals && deltaPitch > 24f
 
-        PointerBus.wheelAngle.value = smoothDelta.coerceIn(-maxAngle, maxAngle)
+        PointerBus.wheelAngle.value = totalDelta.coerceIn(-maxAngle, maxAngle)
         PointerBus.wheelPitch.value = deltaPitch
         PointerBus.wheelSteer.value = steer
         PointerBus.wheelGyroGas.value = gyroGas
@@ -740,8 +765,36 @@ class PointerService : Service(), SensorEventListener {
                 }
                 Action.WheelCenter -> {
                     wheelCalibrated = false
+                    bezelSteerAngle = 0f
                     wheelFilter.reset()
                     lastWheelNanos = 0L
+                }
+                is Action.WheelBezelDelta -> {
+                    val maxAngle = 30f + (10 - tuning.wheelSensitivity) * 5f
+                    bezelSteerAngle = (bezelSteerAngle + action.deltaAngle).coerceIn(-maxAngle, maxAngle)
+                    val absDelta = kotlin.math.abs(bezelSteerAngle)
+                    val steer = if (absDelta <= 1.5f) {
+                        0f
+                    } else {
+                        val u = ((absDelta - 1.5f) / (maxAngle - 1.5f)).coerceIn(0f, 1f)
+                        val curved = 0.80f * u + 0.20f * u * u
+                        val sign = if (bezelSteerAngle > 0f) 1f else -1f
+                        curved * sign
+                    }
+                    PointerBus.wheelAngle.value = bezelSteerAngle
+                    PointerBus.wheelSteer.value = steer
+                    target.wheel(
+                        steer = steer,
+                        throttle = PointerBus.wheelThrottle.value,
+                        brake = PointerBus.wheelBrake.value,
+                        nitro = PointerBus.wheelNitro.value
+                    )
+                }
+                is Action.KeyDown -> {
+                    if (!target.keyDown(action.key)) PointerBus.unsupported.value = action.key
+                }
+                is Action.KeyUp -> {
+                    target.keyUp(action.key)
                 }
                 Action.Click -> target.click(MouseButton.LEFT)
                 Action.DoubleClick -> {

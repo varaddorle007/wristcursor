@@ -66,6 +66,12 @@ interface PointerLink {
     /** Press and let go of a key. Returns false if this link can't send that key. */
     fun send(key: RemoteKey): Boolean
 
+    /** Continuous key down (press and hold) for games. */
+    fun keyDown(key: RemoteKey): Boolean = false
+
+    /** Continuous key up (release) for games. */
+    fun keyUp(key: RemoteKey): Boolean = false
+
     /** Types [text] where the computer's cursor is. Returns false if this link can't type. */
     fun type(text: String): Boolean
 
@@ -108,6 +114,18 @@ class UdpLink(private val socket: DatagramSocket, private val target: InetAddres
     override fun send(key: RemoteKey): Boolean {
         val command = Protocol.keyCommand(key) ?: return false
         send(command)
+        return true
+    }
+
+    override fun keyDown(key: RemoteKey): Boolean {
+        val name = Protocol.keyName(key) ?: return false
+        send("keydown $name")
+        return true
+    }
+
+    override fun keyUp(key: RemoteKey): Boolean {
+        val name = Protocol.keyName(key) ?: return false
+        send("keyup $name")
         return true
     }
 

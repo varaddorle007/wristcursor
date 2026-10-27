@@ -49,23 +49,28 @@ class Pointer {
                 val text = runCatching { String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8) }.getOrNull()
                 if (!text.isNullOrEmpty()) SystemKeys.type(robot, text)
             }
-            "key" -> when (parts.getOrNull(1)) {
-                "next" -> press(KeyEvent.VK_RIGHT)
-                "prev" -> press(KeyEvent.VK_LEFT)
-                "up" -> press(KeyEvent.VK_UP)
-                "down" -> press(KeyEvent.VK_DOWN)
-                "enter" -> press(KeyEvent.VK_ENTER)
-                "esc" -> press(KeyEvent.VK_ESCAPE)
-                "backspace" -> press(KeyEvent.VK_BACK_SPACE)
-                "space" -> press(KeyEvent.VK_SPACE)
-                "shift" -> press(KeyEvent.VK_SHIFT)
-                "w" -> press(KeyEvent.VK_W)
-                "a" -> press(KeyEvent.VK_A)
-                "s" -> press(KeyEvent.VK_S)
-                "d" -> press(KeyEvent.VK_D)
-                "e" -> press(KeyEvent.VK_E)
-            }
+            "key" -> keyToCode(parts.getOrNull(1))?.let { press(it) }
+            "keydown" -> keyToCode(parts.getOrNull(1))?.let { runCatching { robot.keyPress(it) } }
+            "keyup" -> keyToCode(parts.getOrNull(1))?.let { runCatching { robot.keyRelease(it) } }
         }
+    }
+
+    private fun keyToCode(name: String?): Int? = when (name) {
+        "next", "right" -> KeyEvent.VK_RIGHT
+        "prev", "left" -> KeyEvent.VK_LEFT
+        "up" -> KeyEvent.VK_UP
+        "down" -> KeyEvent.VK_DOWN
+        "enter" -> KeyEvent.VK_ENTER
+        "esc" -> KeyEvent.VK_ESCAPE
+        "backspace" -> KeyEvent.VK_BACK_SPACE
+        "space" -> KeyEvent.VK_SPACE
+        "shift" -> KeyEvent.VK_SHIFT
+        "w" -> KeyEvent.VK_W
+        "a" -> KeyEvent.VK_A
+        "s" -> KeyEvent.VK_S
+        "d" -> KeyEvent.VK_D
+        "e" -> KeyEvent.VK_E
+        else -> null
     }
 
     fun resetDriving() {

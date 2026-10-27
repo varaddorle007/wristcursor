@@ -21,7 +21,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -204,10 +207,15 @@ fun SteerScreen(
                         Mode.MOUSE, Mode.TOUCHPAD, Mode.KEYBOARD -> PointerBus.perform(Action.Scroll(event.verticalScrollPixels))
                         Mode.MEDIA, Mode.REMOTE -> PointerBus.perform(Action.Volume(event.verticalScrollPixels))
                         Mode.GAME -> {
-                            crown[0] += event.verticalScrollPixels
-                            if (abs(crown[0]) >= 60f) {
-                                act(Action.Press(if (crown[0] > 0) RemoteKey.UP else RemoteKey.DOWN), Haptics.Kind.CLICK)
-                                crown[0] = 0f
+                            if (tuning.wheelBezelSteer) {
+                                val delta = event.verticalScrollPixels * 0.35f
+                                act(Action.WheelBezelDelta(delta), Haptics.Kind.TICK)
+                            } else {
+                                crown[0] += event.verticalScrollPixels
+                                if (abs(crown[0]) >= 60f) {
+                                    act(Action.Press(if (crown[0] > 0) RemoteKey.UP else RemoteKey.DOWN), Haptics.Kind.CLICK)
+                                    crown[0] = 0f
+                                }
                             }
                         }
                         Mode.SLIDES -> {
@@ -600,7 +608,7 @@ private fun GameFace(
         // Active Game Face
         when (section) {
             GameSection.STEERING -> WheelFace(tuning, act, buzz, onSettings)
-            GameSection.CONTROLS -> GameControlsFace(bindings, key, onSettings)
+            GameSection.CONTROLS -> GameControlsFace(tuning, bindings, act, key, onSettings)
         }
 
         // Top Section Switcher Pill
@@ -727,8 +735,8 @@ private fun WheelFace(
         }
     }
 
-    val isGas = touchThrottle || gyroGas
-    val isBrake = touchBrake || gyroBrake
+    val isGas = touchThrottle || (tuning.wheelTiltPedals && gyroGas)
+    val isBrake = touchBrake || (tuning.wheelTiltPedals && gyroBrake)
 
     val colors = MaterialTheme.colorScheme
     val primary = colors.primary
@@ -1094,13 +1102,13 @@ private fun WheelFace(
                 fontWeight = FontWeight.Bold,
             )
             val subText = when {
-                gyroGas -> "▲ GAS"
-                gyroBrake -> "▼ BRAKE"
+                tuning.wheelTiltPedals && gyroGas -> "▲ GAS"
+                tuning.wheelTiltPedals && gyroBrake -> "▼ BRAKE"
                 else -> "CENTER"
             }
             val subColor = when {
-                gyroGas -> gasColor
-                gyroBrake -> brakeColor
+                tuning.wheelTiltPedals && gyroGas -> gasColor
+                tuning.wheelTiltPedals && gyroBrake -> brakeColor
                 else -> colors.onSurfaceVariant
             }
             Text(
@@ -1249,7 +1257,9 @@ private fun WheelFace(
  */
 @Composable
 private fun GameControlsFace(
+    tuning: Tuning,
     bindings: Bindings,
+    act: (Action, Haptics.Kind) -> Unit,
     key: (RemoteKey, Haptics.Kind) -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -1267,8 +1277,8 @@ private fun GameControlsFace(
     ) {
         // Gyro Acceleration / Braking Live Status Feedback (Forza hands-free gyro)
         val gyroStatus = when {
-            gyroGas -> "▲ GYRO GAS"
-            gyroBrake -> "▼ GYRO BRAKE"
+            tuning.wheelTiltPedals && gyroGas -> "▲ GYRO GAS"
+            tuning.wheelTiltPedals && gyroBrake -> "▼ GYRO BRAKE"
             else -> null
         }
         val gyroStatusColor = when {
@@ -1292,11 +1302,13 @@ private fun GameControlsFace(
             )
         }
 
-        // Center: Customizable Game RingPad (W, A, S, D, Space)
+        // Center: Customizable Game RingPad (W, A, S, D, Space) with instant KeyDown / KeyUp
         RingPad(
             pad = Pad.GAME,
             bindings = bindings,
             onKey = key,
+            onKeyDown = { k -> act(Action.KeyDown(k), Haptics.Kind.TICK) },
+            onKeyUp = { k -> PointerBus.perform(Action.KeyUp(k)) },
             modifier = Modifier.size(134.dp),
         )
 
@@ -1319,6 +1331,8 @@ private fun GameControlsFace(
             primary = true,
             contentDescription = "Shift / Drift",
             onClick = { key(RemoteKey.SHIFT, Haptics.Kind.CLICK) },
+            onKeyDown = { act(Action.KeyDown(RemoteKey.SHIFT), Haptics.Kind.TICK) },
+            onKeyUp = { PointerBus.perform(Action.KeyUp(RemoteKey.SHIFT)) },
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .offset(x = (-4).dp, y = (-36).dp),
@@ -1330,6 +1344,8 @@ private fun GameControlsFace(
             size = 28.dp,
             contentDescription = "E / Action",
             onClick = { key(RemoteKey.KEY_E, Haptics.Kind.CLICK) },
+            onKeyDown = { act(Action.KeyDown(RemoteKey.KEY_E), Haptics.Kind.TICK) },
+            onKeyUp = { PointerBus.perform(Action.KeyUp(RemoteKey.KEY_E)) },
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .offset(x = 8.dp, y = 36.dp),
@@ -1356,7 +1372,9 @@ private fun GameButton(
     size: Dp = 30.dp,
     primary: Boolean = false,
     contentDescription: String,
-    onClick: () -> Unit,
+    onClick: () -> Unit = {},
+    onKeyDown: (() -> Unit)? = null,
+    onKeyUp: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -1370,15 +1388,30 @@ private fun GameButton(
                 color = if (primary) colors.primary else colors.outline.copy(alpha = 0.35f),
                 shape = CircleShape,
             )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
+            .pointerInput(onKeyDown, onKeyUp, onClick) {
+                if (onKeyDown != null && onKeyUp != null) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
                         PointerBus.touching(true)
-                        tryAwaitRelease()
-                        PointerBus.touching(false)
-                    },
-                    onTap = { onClick() },
-                )
+                        onKeyDown()
+                        try {
+                            waitForUpOrCancellation()
+                        } finally {
+                            onKeyUp()
+                            PointerBus.touching(false)
+                        }
+                    }
+                } else {
+                    detectTapGestures(
+                        onPress = {
+                            PointerBus.touching(true)
+                            tryAwaitRelease()
+                            PointerBus.touching(false)
+                        },
+                        onTap = { onClick() },
+                    )
+                }
             }
             .semantics {
                 role = Role.Button

@@ -182,6 +182,40 @@ class HidLink(
         return true
     }
 
+    override fun keyDown(key: RemoteKey): Boolean {
+        val device = host ?: return true
+        val keyboard = HidReports.keyboardUsage(key, toComputer = isComputer(device))
+        if (keyboard != 0) {
+            HidReports.encodeKey(keyReport, keyboard)
+            hid?.sendReport(device, HidReports.KEYBOARD_ID, keyReport)
+            return true
+        }
+        val usage = HidReports.consumerUsage(key)
+        if (usage != 0) {
+            HidReports.encodeMedia(mediaReport, usage)
+            hid?.sendReport(device, HidReports.MEDIA_ID, mediaReport)
+            return true
+        }
+        return false
+    }
+
+    override fun keyUp(key: RemoteKey): Boolean {
+        val device = host ?: return true
+        val keyboard = HidReports.keyboardUsage(key, toComputer = isComputer(device))
+        if (keyboard != 0) {
+            HidReports.encodeKey(keyReport, 0)
+            hid?.sendReport(device, HidReports.KEYBOARD_ID, keyReport)
+            return true
+        }
+        val usage = HidReports.consumerUsage(key)
+        if (usage != 0) {
+            HidReports.encodeMedia(mediaReport, 0)
+            hid?.sendReport(device, HidReports.MEDIA_ID, mediaReport)
+            return true
+        }
+        return false
+    }
+
     // A Bluetooth mouse only ever moves relative to where the cursor is; it can't know the screen size.
     override fun center(): Boolean = false
 

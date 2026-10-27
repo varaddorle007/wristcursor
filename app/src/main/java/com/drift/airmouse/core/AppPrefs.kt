@@ -102,6 +102,9 @@ data class Tuning(
     val touchSpeed: Int = 5,     // 1..10
     val glide: Boolean = true,
     val hints: Boolean = true,
+    val wheelSensitivity: Int = 5,        // 1..10 (steering speed / sensitivity)
+    val wheelTiltPedals: Boolean = false, // false = touch / WASD pedals only (no false triggers!)
+    val wheelBezelSteer: Boolean = true,  // true = rotating bezel turns steering wheel
 ) {
     val haptics: Boolean get() = vibration != Vibration.OFF
 }
@@ -184,6 +187,9 @@ class AppPrefs private constructor(context: Context) {
             putInt(KEY_TOUCH_SPEED, next.touchSpeed)
             putBoolean(KEY_GLIDE, next.glide)
             putBoolean(KEY_HINTS, next.hints)
+            putInt(KEY_WHEEL_SENSITIVITY, next.wheelSensitivity)
+            putBoolean(KEY_WHEEL_TILT_PEDALS, next.wheelTiltPedals)
+            putBoolean(KEY_WHEEL_BEZEL_STEER, next.wheelBezelSteer)
         }
         tuningState.value = next
     }
@@ -273,6 +279,9 @@ class AppPrefs private constructor(context: Context) {
             touchSpeed = prefs.getInt(KEY_TOUCH_SPEED, defaults.touchSpeed).coerceIn(1, 10),
             glide = prefs.getBoolean(KEY_GLIDE, defaults.glide),
             hints = prefs.getBoolean(KEY_HINTS, defaults.hints),
+            wheelSensitivity = prefs.getInt(KEY_WHEEL_SENSITIVITY, defaults.wheelSensitivity).coerceIn(1, 10),
+            wheelTiltPedals = prefs.getBoolean(KEY_WHEEL_TILT_PEDALS, defaults.wheelTiltPedals),
+            wheelBezelSteer = prefs.getBoolean(KEY_WHEEL_BEZEL_STEER, defaults.wheelBezelSteer),
         )
     }
 
@@ -343,6 +352,9 @@ class AppPrefs private constructor(context: Context) {
         private const val KEY_TOUCH_SPEED = "touch_speed"
         private const val KEY_GLIDE = "glide"
         private const val KEY_HINTS = "hints"
+        private const val KEY_WHEEL_SENSITIVITY = "wheel_sensitivity"
+        private const val KEY_WHEEL_TILT_PEDALS = "wheel_tilt_pedals"
+        private const val KEY_WHEEL_BEZEL_STEER = "wheel_bezel_steer"
         private const val BINDING_PREFIX = "bind."
         private const val KEY_DIM = "dim_screen"
         private const val KEY_AUTO_STOP = "auto_stop"

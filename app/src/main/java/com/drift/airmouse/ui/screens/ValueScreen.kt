@@ -56,6 +56,7 @@ enum class Knob(
     PINCH("Pinch sensitivity", "Higher catches lighter pinches", 1..3, { it.pinchSensitivity }, { t, v -> t.copy(pinchSensitivity = v) }),
     SHAKE("Shake sensitivity", "Higher needs a gentler shake", 1..3, { it.shakeSensitivity }, { t, v -> t.copy(shakeSensitivity = v) }),
     TOUCH_SPEED("Touchpad speed", "How far a swipe moves the cursor", 1..10, { it.touchSpeed }, { t, v -> t.copy(touchSpeed = v) }),
+    WHEEL_SENSITIVITY("Steering speed", "Higher steers further with less wrist turn", 1..10, { it.wheelSensitivity }, { t, v -> t.copy(wheelSensitivity = v) }),
 }
 
 /** Big number, − and + buttons, and the bezel or crown turns it. */

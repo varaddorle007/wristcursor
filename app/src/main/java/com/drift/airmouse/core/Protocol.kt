@@ -34,17 +34,34 @@ object Protocol {
     const val MAX_TYPED = 4_000
 
     /**
+     * The receiver's name for a keyboard key, or null if it's media/unsupported.
+     */
+    fun keyName(key: RemoteKey): String? = when (key) {
+        RemoteKey.RIGHT -> "right"
+        RemoteKey.LEFT -> "left"
+        RemoteKey.UP -> "up"
+        RemoteKey.DOWN -> "down"
+        RemoteKey.OK -> "enter"
+        RemoteKey.BACK -> "esc"
+        RemoteKey.BACKSPACE -> "backspace"
+        RemoteKey.SPACE -> "space"
+        RemoteKey.SHIFT -> "shift"
+        RemoteKey.KEY_W -> "w"
+        RemoteKey.KEY_A -> "a"
+        RemoteKey.KEY_S -> "s"
+        RemoteKey.KEY_D -> "d"
+        RemoteKey.KEY_E -> "e"
+        RemoteKey.ESCAPE -> "esc"
+        else -> null
+    }
+
+    /**
      * The receiver's name for a key, or null if it can't press it.
      * Left and right keep their original names so older receivers still flip slides.
      */
     fun keyCommand(key: RemoteKey): String? = when (key) {
         RemoteKey.RIGHT -> NEXT
         RemoteKey.LEFT -> PREV
-        RemoteKey.UP -> "key up"
-        RemoteKey.DOWN -> "key down"
-        RemoteKey.OK -> "key enter"
-        RemoteKey.BACK -> "key esc"
-        RemoteKey.BACKSPACE -> "key backspace"
         RemoteKey.PLAY_PAUSE -> "media play"
         RemoteKey.NEXT -> "media next"
         RemoteKey.PREVIOUS -> "media prev"
@@ -53,14 +70,6 @@ object Protocol {
         RemoteKey.VOLUME_UP -> "media volup"
         RemoteKey.VOLUME_DOWN -> "media voldown"
         RemoteKey.MUTE -> "media mute"
-        RemoteKey.SPACE -> "key space"
-        RemoteKey.SHIFT -> "key shift"
-        RemoteKey.KEY_W -> "key w"
-        RemoteKey.KEY_A -> "key a"
-        RemoteKey.KEY_S -> "key s"
-        RemoteKey.KEY_D -> "key d"
-        RemoteKey.KEY_E -> "key e"
-        RemoteKey.ESCAPE -> "key esc"
-        else -> null
+        else -> keyName(key)?.let { "key $it" }
     }
 }

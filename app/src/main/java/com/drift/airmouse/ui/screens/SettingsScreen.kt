@@ -103,6 +103,25 @@ fun SettingsScreen(
             Toggle("Gesture hints", "Show tips on the touchpad", tuning.hints) { on -> update { it.copy(hints = on) } }
         }
 
+        section("Game controller")
+        item {
+            Toggle("Right wrist wear", "Wear watch on right hand to steer", tuning.rightWrist) { on ->
+                update { it.copy(rightWrist = on) }
+            }
+        }
+        knobRow(Knob.WHEEL_SENSITIVITY, tuning, onKnob)
+        item {
+            Toggle("Bezel steering", "Turn rotating bezel to steer car", tuning.wheelBezelSteer) { on ->
+                update { it.copy(wheelBezelSteer = on) }
+            }
+        }
+        item {
+            Toggle("Tilt gas & brake", "Tilt wrist for gas & brake (hands-free)", tuning.wheelTiltPedals) { on ->
+                update { it.copy(wheelTiltPedals = on) }
+            }
+        }
+        item { RowButton("Remap game buttons", onRemap, secondary = "Customize WASD & action keys") }
+
         section("TV remote & media")
         item { RowButton("Remap buttons", onRemap, secondary = "Customize button actions") }
 

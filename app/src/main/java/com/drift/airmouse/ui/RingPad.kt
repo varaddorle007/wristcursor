@@ -57,6 +57,8 @@ fun RingPad(
     bindings: Bindings,
     onKey: (RemoteKey, Haptics.Kind) -> Unit,
     modifier: Modifier = Modifier,
+    onKeyDown: ((RemoteKey) -> Unit)? = null,
+    onKeyUp: ((RemoteKey) -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     var pressed by remember { mutableStateOf<Slot?>(null) }
@@ -76,22 +78,28 @@ fun RingPad(
                         PointerBus.touching(true)
                         pressed = slot
                         try {
-                            val early = withTimeoutOrNull(LONG_MS) { waitForUpOrCancellation() != null }
-                            when {
-                                early != null -> if (early) onKey(binding.short, Haptics.Kind.CLICK)
-                                binding.long != RemoteKey.NONE -> {
-                                    onKey(binding.long, Haptics.Kind.HEAVY)
-                                    waitForUpOrCancellation()
-                                }
-                                Remap.repeats(binding.short) -> {
-                                    onKey(binding.short, Haptics.Kind.TICK)
-                                    while (withTimeoutOrNull(REPEAT_MS) { waitForUpOrCancellation(); true } == null) {
-                                        onKey(binding.short, Haptics.Kind.TICK)
+                            if (pad == Pad.GAME && onKeyDown != null && onKeyUp != null) {
+                                onKeyDown(binding.short)
+                                waitForUpOrCancellation()
+                                onKeyUp(binding.short)
+                            } else {
+                                val early = withTimeoutOrNull(LONG_MS) { waitForUpOrCancellation() != null }
+                                when {
+                                    early != null -> if (early) onKey(binding.short, Haptics.Kind.CLICK)
+                                    binding.long != RemoteKey.NONE -> {
+                                        onKey(binding.long, Haptics.Kind.HEAVY)
+                                        waitForUpOrCancellation()
                                     }
-                                }
-                                else -> {
-                                    onKey(binding.short, Haptics.Kind.CLICK)
-                                    waitForUpOrCancellation()
+                                    Remap.repeats(binding.short) -> {
+                                        onKey(binding.short, Haptics.Kind.TICK)
+                                        while (withTimeoutOrNull(REPEAT_MS) { waitForUpOrCancellation(); true } == null) {
+                                            onKey(binding.short, Haptics.Kind.TICK)
+                                        }
+                                    }
+                                    else -> {
+                                        onKey(binding.short, Haptics.Kind.CLICK)
+                                        waitForUpOrCancellation()
+                                    }
                                 }
                             }
                         } finally {
