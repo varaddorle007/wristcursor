@@ -772,47 +772,7 @@ private fun WheelFace(
     val gasColor = Color(0xFF00E676)
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val bounds = size
-                        val cx = bounds.width / 2f
-                        val cy = bounds.height / 2f
-                        val centerRadius = bounds.width * 0.22f
-
-                        var anyGas = false
-                        var anyBrake = false
-                        var anyCenter = false
-
-                        val pressedPointers = event.changes.filter { it.pressed }
-                        for (change in pressedPointers) {
-                            val pos = change.position
-                            val dx = pos.x - cx
-                            val dy = pos.y - cy
-                            val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-
-                            if (dist <= centerRadius) {
-                                anyCenter = true
-                            } else if (pos.x < cx) {
-                                anyBrake = true
-                            } else {
-                                anyGas = true
-                            }
-                        }
-
-                        if (anyCenter && pressedPointers.size == 1 && event.changes.any { !it.previousPressed && it.pressed }) {
-                            act(Action.WheelCenter, Haptics.Kind.CLICK)
-                        }
-
-                        val gasDown = anyGas && !anyCenter
-                        val brakeDown = anyBrake && !anyCenter
-                        updatePedals(gasDown, brakeDown, false)
-                    }
-                }
-            },
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         // Rotating Racing Steering Wheel & Turn Meter
@@ -1120,7 +1080,11 @@ private fun WheelFace(
         // Center Horn Hub with Digital Angle Readout and Pitch Status
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy((-1).dp),
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .clickable { act(Action.WheelCenter, Haptics.Kind.CLICK) },
         ) {
             val angleStr = if (abs(angle) < 1f) "0°" else if (angle > 0) "+${angle.toInt()}°" else "${angle.toInt()}°"
             Text(
@@ -1161,6 +1125,15 @@ private fun WheelFace(
                     color = if (isBrake) brakeColor else brakeColor.copy(alpha = 0.75f),
                     shape = RoundedCornerShape(14.dp),
                 )
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        buzz(Haptics.Kind.TICK)
+                        updatePedals(gas = touchThrottle, brk = true, ntr = touchNitro)
+                        waitForUpOrCancellation()
+                        updatePedals(gas = touchThrottle, brk = false, ntr = touchNitro)
+                    }
+                }
                 .padding(horizontal = 4.dp, vertical = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -1219,6 +1192,15 @@ private fun WheelFace(
                     color = if (isGas) gasColor else gasColor.copy(alpha = 0.75f),
                     shape = RoundedCornerShape(14.dp),
                 )
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        buzz(Haptics.Kind.TICK)
+                        updatePedals(gas = true, brk = touchBrake, ntr = touchNitro)
+                        waitForUpOrCancellation()
+                        updatePedals(gas = false, brk = touchBrake, ntr = touchNitro)
+                    }
+                }
                 .padding(horizontal = 4.dp, vertical = 5.dp),
             contentAlignment = Alignment.Center,
         ) {

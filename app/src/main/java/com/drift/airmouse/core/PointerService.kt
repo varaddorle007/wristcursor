@@ -179,7 +179,7 @@ class PointerService : Service(), SensorEventListener {
     private var bezelSteerAngle = 0f
     private val rotMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
-    private val wheelFilter = OneEuroFilter(minCutoff = 3.2f, beta = 0.08f)
+    private val wheelFilter = OneEuroFilter(minCutoff = 12.0f, beta = 1.0f, derivativeCutoff = 20.0f)
     private var lastWheelNanos = 0L
     private var pinch = PinchDetector(PinchDetector.DEFAULT_THRESHOLD)
     private var shake = ShakeDetector(2)
@@ -460,7 +460,7 @@ class PointerService : Service(), SensorEventListener {
             PointerBus.wheelGyroGas.value = false
             PointerBus.wheelGyroBrake.value = false
             lastActivityMs = SystemClock.uptimeMillis()
-            sensors.registerListener(this, sensor, tuning.power.samplingUs, 0, motion)
+            sensors.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME, 0, motion)
         } else {
             wheelSensor?.let { sensors.unregisterListener(this, it) }
             wheelSensor = null
@@ -571,7 +571,8 @@ class PointerService : Service(), SensorEventListener {
         // Dot product (uCal . uNow) (cos of steering rotation):
         val cosAngle = uCalX * uNowX + uCalY * uNowY + uCalZ * uNowZ
 
-        var rawAngleDeg = Math.toDegrees(kotlin.math.atan2(sinAngle.toDouble(), cosAngle.toDouble())).toFloat()
+        // Invert sinAngle so that clockwise rotation (turning right) yields positive angle (+deg)
+        var rawAngleDeg = Math.toDegrees(kotlin.math.atan2(-sinAngle.toDouble(), cosAngle.toDouble())).toFloat()
 
         if (tuning.rightWrist) {
             rawAngleDeg = -rawAngleDeg
@@ -621,10 +622,10 @@ class PointerService : Service(), SensorEventListener {
         val activeNitro = PointerBus.wheelNitro.value
 
         val pedalChanged = activeThrottle != lastSentThrottle || activeBrake != lastSentBrake || activeNitro != lastSentNitro
-        val steerChanged = kotlin.math.abs(steer - lastSentSteer) >= 0.012f
+        val steerChanged = kotlin.math.abs(steer - lastSentSteer) >= 0.005f
         val timeElapsed = now - lastWheelSentMs >= 20L
 
-        if (pedalChanged || (steerChanged && now - lastWheelSentMs >= 15L) || timeElapsed) {
+        if (pedalChanged || (steerChanged && now - lastWheelSentMs >= 10L) || timeElapsed) {
             link?.wheel(
                 steer = steer,
                 throttle = activeThrottle,
@@ -642,7 +643,7 @@ class PointerService : Service(), SensorEventListener {
 
     private fun onWheelGyroFallback(event: SensorEvent) {
         val now = SystemClock.uptimeMillis()
-        val rz = event.values[2]
+        val rz = -event.values[2]
         val delta = (rz * 50f).coerceIn(-60f, 60f)
         val steer = (delta / 60f).coerceIn(-1f, 1f)
         PointerBus.wheelAngle.value = delta

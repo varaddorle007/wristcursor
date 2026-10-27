@@ -32,6 +32,7 @@ class ReceiverWindow(
     private val onAllow: (String) -> Unit,
     private val onDeny: (String) -> Unit,
     private val onForget: () -> Unit,
+    private val onToggleMouseSteering: ((Boolean) -> Unit)? = null,
 ) {
     private val frame = JFrame("Drift Receiver")
     private val status = label("Waiting for your watch…", 16f, Font.BOLD, Palette.text)
@@ -39,6 +40,13 @@ class ReceiverWindow(
     private val allow = JButton("Allow")
     private val deny = JButton("Don't allow")
     private val askRow = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0))
+    private val mouseSteerCheck = javax.swing.JCheckBox("🏎️ Analog Mouse Steering (Assetto / BeamNG / Sim)").apply {
+        isOpaque = false
+        foreground = Palette.mint
+        font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
+        alignmentX = Component.LEFT_ALIGNMENT
+        addActionListener { onToggleMouseSteering?.invoke(isSelected) }
+    }
     private var pendingId: String? = null
     private val isMac = System.getProperty("os.name").startsWith("Mac")
 
@@ -77,6 +85,8 @@ class ReceiverWindow(
                 add(Box.createVerticalStrut(4))
                 add(label(MAC_HINT, 11f, Font.PLAIN, Palette.muted))
             }
+            add(Box.createVerticalStrut(10))
+            add(mouseSteerCheck)
             add(Box.createVerticalStrut(10))
             add(forget)
         }

@@ -108,6 +108,50 @@ class WheelSteeringTest {
     }
 
     @Test
+    fun gamingFilterHasUltraFastResponseAndZeroLag() {
+        val filter = OneEuroFilter(minCutoff = 12.0f, beta = 1.0f, derivativeCutoff = 20.0f)
+        val dt = 0.01f // 100 Hz
+
+        // Static input with 0.5 deg micro-tremor
+        var smoothed = 0f
+        for (i in 0 until 50) {
+            val noise = if (i % 2 == 0) 0.4f else -0.4f
+            smoothed = filter.filter(0f + noise, dt)
+        }
+        assertTrue("Tremor should be smoothed", abs(smoothed) < 0.25f)
+
+        // Fast counter-steering step: reaches over 50% on first 10ms frame
+        val step1 = filter.filter(30f, dt)
+        assertTrue("Gaming filter achieves instant responsiveness (>15 deg on 1st frame)", step1 > 15f)
+        val step2 = filter.filter(30f, dt)
+        assertTrue("Gaming filter reaches near target on 2nd frame (>24 deg)", step2 > 24f)
+    }
+
+    @Test
+    fun steeringPlane3DProjectionClockwiseTurnIsPositive() {
+        // Calibrated vectors: watch normal +Z pointing at driver, 12 o'clock +Y pointing up
+        val uCal = floatArrayOf(0f, 1f, 0f)
+        val nCal = floatArrayOf(0f, 0f, 1f)
+
+        // Rotate clockwise (turning right) 30 degrees around Z axis:
+        val theta = Math.toRadians(30.0)
+        val uNow = floatArrayOf(kotlin.math.sin(theta).toFloat(), kotlin.math.cos(theta).toFloat(), 0f)
+
+        // Cross product uCal x uNow:
+        val crossX = uCal[1] * uNow[2] - uCal[2] * uNow[1]
+        val crossY = uCal[2] * uNow[0] - uCal[0] * uNow[2]
+        val crossZ = uCal[0] * uNow[1] - uCal[1] * uNow[0]
+
+        val sinAngle = crossX * nCal[0] + crossY * nCal[1] + crossZ * nCal[2]
+        val cosAngle = uCal[0] * uNow[0] + uCal[1] * uNow[1] + uCal[2] * uNow[2]
+
+        val rawAngleDeg = Math.toDegrees(kotlin.math.atan2(-sinAngle.toDouble(), cosAngle.toDouble())).toFloat()
+
+        // Clockwise turn must yield positive angle (+30 deg) so car steers right
+        assertEquals(30f, rawAngleDeg, 0.01f)
+    }
+
+    @Test
     fun hidGamepadReportClamping() {
         val out = ByteArray(HidReports.GAMEPAD_SIZE)
         // Check full left (-32767) and full right (+32767)

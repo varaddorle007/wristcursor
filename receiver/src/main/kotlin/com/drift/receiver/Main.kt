@@ -30,6 +30,7 @@ fun main() {
             trust.clear()
             server.disconnectAll()
         },
+        onToggleMouseSteering = { pointer.mouseSteeringEnabled = it },
     )
     server = try {
         Server(pointer, trust, window)

@@ -25,86 +25,12 @@ class Pointer {
     private var currentGas = false
     private var currentBrake = false
     private var currentNitro = false
-    @Volatile private var targetSteer = 0f
-    @Volatile private var runningPwm = true
 
-    init {
-        kotlin.concurrent.thread(name = "drift-steering-pwm", isDaemon = true) {
-            while (runningPwm) {
-                val s = targetSteer
-                val absS = kotlin.math.abs(s)
-                if (absS <= 0.025f) {
-                    if (currentSteer != 0) {
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_LEFT)
-                            robot.keyRelease(KeyEvent.VK_A)
-                            robot.keyRelease(KeyEvent.VK_RIGHT)
-                            robot.keyRelease(KeyEvent.VK_D)
-                        }
-                        currentSteer = 0
-                    }
-                    Thread.sleep(20)
-                    continue
-                }
-
-                val periodMs = 40L
-                val duty = (absS * absS * 0.25f + absS * 0.75f).coerceIn(0.12f, 1.0f)
-
-                if (duty >= 0.88f) {
-                    if (s < 0f && currentSteer != -1) {
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_RIGHT)
-                            robot.keyRelease(KeyEvent.VK_D)
-                            robot.keyPress(KeyEvent.VK_LEFT)
-                            robot.keyPress(KeyEvent.VK_A)
-                        }
-                        currentSteer = -1
-                    } else if (s > 0f && currentSteer != 1) {
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_LEFT)
-                            robot.keyRelease(KeyEvent.VK_A)
-                            robot.keyPress(KeyEvent.VK_RIGHT)
-                            robot.keyPress(KeyEvent.VK_D)
-                        }
-                        currentSteer = 1
-                    }
-                    Thread.sleep(periodMs)
-                } else {
-                    val pressMs = (periodMs * duty).toLong().coerceIn(5L, 35L)
-                    val releaseMs = periodMs - pressMs
-
-                    if (s < 0f) {
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_RIGHT)
-                            robot.keyRelease(KeyEvent.VK_D)
-                            robot.keyPress(KeyEvent.VK_LEFT)
-                            robot.keyPress(KeyEvent.VK_A)
-                        }
-                        Thread.sleep(pressMs)
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_LEFT)
-                            robot.keyRelease(KeyEvent.VK_A)
-                        }
-                        Thread.sleep(releaseMs)
-                    } else {
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_LEFT)
-                            robot.keyRelease(KeyEvent.VK_A)
-                            robot.keyPress(KeyEvent.VK_RIGHT)
-                            robot.keyPress(KeyEvent.VK_D)
-                        }
-                        Thread.sleep(pressMs)
-                        runCatching {
-                            robot.keyRelease(KeyEvent.VK_RIGHT)
-                            robot.keyRelease(KeyEvent.VK_D)
-                        }
-                        Thread.sleep(releaseMs)
-                    }
-                    currentSteer = 0
-                }
-            }
-        }
-    }
+    /**
+     * When true, steering also moves the mouse cursor horizontally across screen center,
+     * providing 1:1 analog steering rack input for simulators (Assetto Corsa, BeamNG, ETS2).
+     */
+    @Volatile var mouseSteeringEnabled = false
 
     fun apply(command: String) {
         val parts = command.split(' ')
@@ -123,6 +49,10 @@ class Pointer {
                 val brake = parts.getOrNull(3) == "1"
                 val nitro = parts.getOrNull(4) == "1"
                 applyWheel(steer, throttle, brake, nitro)
+            }
+            "steermode" -> {
+                val mode = parts.getOrNull(1)
+                mouseSteeringEnabled = (mode == "mouse" || mode == "1")
             }
             "media" -> parts.getOrNull(1)?.let(SystemKeys::media)
             "type" -> parts.getOrNull(1)?.let { encoded ->
@@ -180,7 +110,6 @@ class Pointer {
     }
 
     fun resetDriving() {
-        targetSteer = 0f
         runCatching {
             robot.keyRelease(KeyEvent.VK_LEFT)
             robot.keyRelease(KeyEvent.VK_A)
@@ -200,12 +129,54 @@ class Pointer {
         currentGas = false
         currentBrake = false
         currentNitro = false
+        if (mouseSteeringEnabled) {
+            center()
+        }
     }
 
     private fun applyWheel(steer: Float, throttle: Boolean, brake: Boolean, nitro: Boolean) {
-        targetSteer = steer
+        // 1. Digital Keyboard Steering (WASD + Arrow keys):
+        // Hold keys continuously without pulsing or spamming; release cleanly at center.
+        val newSteer = when {
+            steer < -0.04f -> -1
+            steer > 0.04f -> 1
+            else -> 0
+        }
 
-        // Throttle (Up / W)
+        if (newSteer != currentSteer) {
+            when (newSteer) {
+                -1 -> {
+                    // Turn Left: release right keys, press and hold left keys
+                    runCatching {
+                        robot.keyRelease(KeyEvent.VK_RIGHT)
+                        robot.keyRelease(KeyEvent.VK_D)
+                        robot.keyPress(KeyEvent.VK_LEFT)
+                        robot.keyPress(KeyEvent.VK_A)
+                    }
+                }
+                1 -> {
+                    // Turn Right: release left keys, press and hold right keys
+                    runCatching {
+                        robot.keyRelease(KeyEvent.VK_LEFT)
+                        robot.keyRelease(KeyEvent.VK_A)
+                        robot.keyPress(KeyEvent.VK_RIGHT)
+                        robot.keyPress(KeyEvent.VK_D)
+                    }
+                }
+                0 -> {
+                    // Straight / Center: release all steering keys
+                    runCatching {
+                        robot.keyRelease(KeyEvent.VK_LEFT)
+                        robot.keyRelease(KeyEvent.VK_A)
+                        robot.keyRelease(KeyEvent.VK_RIGHT)
+                        robot.keyRelease(KeyEvent.VK_D)
+                    }
+                }
+            }
+            currentSteer = newSteer
+        }
+
+        // 2. Throttle (Up / W)
         if (throttle != currentGas) {
             if (throttle) {
                 runCatching { robot.keyPress(KeyEvent.VK_UP); robot.keyPress(KeyEvent.VK_W) }
@@ -215,7 +186,7 @@ class Pointer {
             currentGas = throttle
         }
 
-        // Brake (Down / S)
+        // 3. Brake (Down / S)
         if (brake != currentBrake) {
             if (brake) {
                 runCatching { robot.keyPress(KeyEvent.VK_DOWN); robot.keyPress(KeyEvent.VK_S) }
@@ -225,7 +196,7 @@ class Pointer {
             currentBrake = brake
         }
 
-        // Nitro / Handbrake (Space)
+        // 4. Nitro / Handbrake (Space)
         if (nitro != currentNitro) {
             if (nitro) {
                 runCatching { robot.keyPress(KeyEvent.VK_SPACE) }
@@ -233,6 +204,19 @@ class Pointer {
                 runCatching { robot.keyRelease(KeyEvent.VK_SPACE) }
             }
             currentNitro = nitro
+        }
+
+        // 5. 1:1 Analog Mouse Steering for racing simulators (Assetto Corsa, BeamNG, ETS2)
+        if (mouseSteeringEnabled) {
+            val bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.defaultConfiguration.bounds
+            val centerX = bounds.x + bounds.width / 2
+            val centerY = bounds.y + bounds.height / 2
+            val maxRange = bounds.width / 2 - 40
+            val targetX = (centerX + (steer * maxRange)).toInt().coerceIn(bounds.x + 20, bounds.x + bounds.width - 20)
+            robot.mouseMove(targetX, centerY)
+            x = targetX
+            y = centerY
+            lastMoveNanos = System.nanoTime()
         }
     }
 
