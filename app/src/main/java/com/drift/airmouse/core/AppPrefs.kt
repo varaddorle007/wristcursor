@@ -19,11 +19,11 @@ enum class Mode(val label: String, val detail: String) {
     TOUCHPAD("Touchpad", "Drag your finger to move"),
     REMOTE("TV remote", "Arrows, OK, Back and Home"),
     KEYBOARD("Keyboard", "Speak or type into the computer"),
-    WHEEL("Wheel", "Turn wrist to steer car");
+    GAME("Game", "Wheel & WASD controller");
 
     companion object {
         /** The order the mode picker shows them in. */
-        val picker = listOf(MOUSE, WHEEL, TOUCHPAD, KEYBOARD, REMOTE, MEDIA, SLIDES)
+        val picker = listOf(MOUSE, GAME, TOUCHPAD, KEYBOARD, REMOTE, MEDIA, SLIDES)
     }
 }
 

@@ -486,6 +486,14 @@ object HidReports {
         RemoteKey.OK -> 0x28 // Enter: Android TV treats it as the D-pad center
         RemoteKey.BACK -> if (toComputer) 0x29 else 0 // Escape
         RemoteKey.BACKSPACE -> 0x2A
+        RemoteKey.SPACE -> 0x2C
+        RemoteKey.SHIFT -> 0xE1
+        RemoteKey.KEY_W -> 0x1A
+        RemoteKey.KEY_A -> 0x04
+        RemoteKey.KEY_S -> 0x16
+        RemoteKey.KEY_D -> 0x07
+        RemoteKey.KEY_E -> 0x08
+        RemoteKey.ESCAPE -> 0x29
         else -> 0
     }
 

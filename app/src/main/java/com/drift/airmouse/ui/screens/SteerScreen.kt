@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -40,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +77,7 @@ import androidx.wear.compose.material3.Text
 import com.drift.airmouse.R
 import com.drift.airmouse.core.Action
 import com.drift.airmouse.core.AppPrefs
+import com.drift.airmouse.core.Bindings
 import com.drift.airmouse.core.Haptics
 import com.drift.airmouse.core.LinkState
 import com.drift.airmouse.core.Mode
@@ -107,7 +110,12 @@ private const val RING_GAP = 124f
  * - Slides: big Back and Next buttons; the bezel or crown flips slides.
  */
 @Composable
-fun SteerScreen(onStop: () -> Unit, onModes: () -> Unit, onBack: () -> Unit) {
+fun SteerScreen(
+    onStop: () -> Unit,
+    onModes: () -> Unit,
+    onBack: () -> Unit,
+    onSettings: () -> Unit = {},
+) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val view = LocalView.current
@@ -190,7 +198,7 @@ fun SteerScreen(onStop: () -> Unit, onModes: () -> Unit, onBack: () -> Unit) {
                     when (mode) {
                         Mode.MOUSE, Mode.TOUCHPAD, Mode.KEYBOARD -> PointerBus.perform(Action.Scroll(event.verticalScrollPixels))
                         Mode.MEDIA, Mode.REMOTE -> PointerBus.perform(Action.Volume(event.verticalScrollPixels))
-                        Mode.WHEEL -> {
+                        Mode.GAME -> {
                             crown[0] += event.verticalScrollPixels
                             if (abs(crown[0]) >= 60f) {
                                 act(Action.Press(if (crown[0] > 0) RemoteKey.UP else RemoteKey.DOWN), Haptics.Kind.CLICK)
@@ -214,7 +222,7 @@ fun SteerScreen(onStop: () -> Unit, onModes: () -> Unit, onBack: () -> Unit) {
             if (steering) {
                 when (mode) {
                     Mode.MOUSE -> MouseFace(tuning, connectedTo, ::act, ::buzz)
-                    Mode.WHEEL -> WheelFace(tuning, ::act, ::buzz)
+                    Mode.GAME -> GameFace(tuning, bindings, ::act, ::buzz, ::key, onSettings)
                     Mode.TOUCHPAD -> TouchpadSurface(tuning, ::buzz, Modifier.fillMaxSize())
                     Mode.REMOTE -> RemoteFace(bindings, ::key)
                     Mode.MEDIA -> RingPad(
@@ -564,23 +572,126 @@ private fun typingInput(): Intent {
 }
 
 /**
+ * Game section tabs: Virtual Steering Wheel or Tactile WASD Controller.
+ */
+enum class GameSection {
+    STEERING,
+    CONTROLS,
+}
+
+@Composable
+private fun GameFace(
+    tuning: Tuning,
+    bindings: Bindings,
+    act: (Action, Haptics.Kind) -> Unit,
+    buzz: (Haptics.Kind) -> Unit,
+    key: (RemoteKey, Haptics.Kind) -> Unit,
+    onSettings: () -> Unit,
+) {
+    var section by rememberSaveable { mutableStateOf(GameSection.STEERING) }
+    val colors = MaterialTheme.colorScheme
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // Active Game Face
+        when (section) {
+            GameSection.STEERING -> WheelFace(tuning, act, buzz, onSettings)
+            GameSection.CONTROLS -> GameControlsFace(bindings, key, onSettings)
+        }
+
+        // Top Section Switcher Pill
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 38.dp)
+                .clip(CircleShape)
+                .background(colors.surfaceContainer.copy(alpha = 0.92f))
+                .padding(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(if (section == GameSection.STEERING) colors.primary else Color.Transparent)
+                    .clickable {
+                        if (section != GameSection.STEERING) {
+                            section = GameSection.STEERING
+                            buzz(Haptics.Kind.TICK)
+                        }
+                    }
+                    .padding(horizontal = 9.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Icon(
+                        painterResource(R.drawable.ic_wheel),
+                        contentDescription = "Steering",
+                        modifier = Modifier.size(11.dp),
+                        tint = if (section == GameSection.STEERING) colors.onPrimary else colors.onSurfaceVariant,
+                    )
+                    Text(
+                        "Steer",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (section == GameSection.STEERING) colors.onPrimary else colors.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(if (section == GameSection.CONTROLS) colors.primary else Color.Transparent)
+                    .clickable {
+                        if (section != GameSection.CONTROLS) {
+                            section = GameSection.CONTROLS
+                            buzz(Haptics.Kind.TICK)
+                        }
+                    }
+                    .padding(horizontal = 9.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Icon(
+                        painterResource(R.drawable.ic_console),
+                        contentDescription = "WASD Controls",
+                        modifier = Modifier.size(11.dp),
+                        tint = if (section == GameSection.CONTROLS) colors.onPrimary else colors.onSurfaceVariant,
+                    )
+                    Text(
+                        "WASD",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (section == GameSection.CONTROLS) colors.onPrimary else colors.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Game controller steering wheel mode for car games.
  * - Wrist tilt/roll steers the car with ultra-responsive analog precision.
+ * - Wrist pitch tilt (forward = Gas, back = Brake) for natural hands-free driving in Forza.
  * - Left half of the screen is the Brake paddle.
  * - Right half of the screen is the Gas / Accelerator paddle.
  * - Center hub tap instantly re-centers/calibrates zero angle.
+ * - Settings gear button jumps directly to tuning and button remapping.
  */
 @Composable
 private fun WheelFace(
     tuning: Tuning,
     act: (Action, Haptics.Kind) -> Unit,
     buzz: (Haptics.Kind) -> Unit,
+    onSettings: () -> Unit,
 ) {
     val angle by PointerBus.wheelAngle.collectAsState()
     val steer by PointerBus.wheelSteer.collectAsState()
-    var throttle by remember { mutableStateOf(false) }
-    var brake by remember { mutableStateOf(false) }
-    var nitro by remember { mutableStateOf(false) }
+    val gyroGas by PointerBus.wheelGyroGas.collectAsState()
+    val gyroBrake by PointerBus.wheelGyroBrake.collectAsState()
+    var touchThrottle by remember { mutableStateOf(false) }
+    var touchBrake by remember { mutableStateOf(false) }
+    var touchNitro by remember { mutableStateOf(false) }
 
     // Haptics on center crossing and full lock limits
     var lastAngleInt by remember { mutableStateOf(0) }
@@ -603,13 +714,16 @@ private fun WheelFace(
     }
 
     fun updatePedals(gas: Boolean, brk: Boolean, ntr: Boolean) {
-        if (gas != throttle || brk != brake || ntr != nitro) {
-            throttle = gas
-            brake = brk
-            nitro = ntr
+        if (gas != touchThrottle || brk != touchBrake || ntr != touchNitro) {
+            touchThrottle = gas
+            touchBrake = brk
+            touchNitro = ntr
             act(Action.WheelPedals(gas, brk, ntr), Haptics.Kind.TICK)
         }
     }
+
+    val isGas = touchThrottle || gyroGas
+    val isBrake = touchBrake || gyroBrake
 
     val colors = MaterialTheme.colorScheme
     val primary = colors.primary
@@ -750,7 +864,7 @@ private fun WheelFace(
             }
         }
 
-        // Center Horn Hub with Digital Angle Readout
+        // Center Horn Hub with Digital Angle Readout and Pitch Status
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -762,11 +876,21 @@ private fun WheelFace(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
             )
+            val subText = when {
+                gyroGas -> "▲ GAS"
+                gyroBrake -> "▼ BRAKE"
+                else -> "CENTER"
+            }
+            val subColor = when {
+                gyroGas -> gasColor
+                gyroBrake -> brakeColor
+                else -> colors.onSurfaceVariant
+            }
             Text(
-                text = "CENTER",
-                color = colors.onSurfaceVariant,
+                text = subText,
+                color = subColor,
                 fontSize = 9.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.ExtraBold,
             )
         }
 
@@ -775,15 +899,15 @@ private fun WheelFace(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .padding(start = 6.dp)
-                .size(width = 56.dp, height = 76.dp)
+                .size(width = 54.dp, height = 74.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (brake) brakeColor.copy(alpha = 0.55f) else Color.Transparent)
+                .background(if (isBrake) brakeColor.copy(alpha = 0.55f) else Color.Transparent)
                 .padding(4.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 "BRAKE",
-                color = if (brake) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
+                color = if (isBrake) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
@@ -794,17 +918,191 @@ private fun WheelFace(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = 6.dp)
-                .size(width = 56.dp, height = 76.dp)
+                .size(width = 54.dp, height = 74.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (throttle) gasColor.copy(alpha = 0.55f) else Color.Transparent)
+                .background(if (isGas) gasColor.copy(alpha = 0.55f) else Color.Transparent)
                 .padding(4.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 "GAS",
-                color = if (throttle) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
+                color = if (isGas) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
+            )
+        }
+
+        // Direct Settings Shortcut Button (Bottom-Right)
+        GameButton(
+            icon = R.drawable.ic_settings,
+            size = 28.dp,
+            contentDescription = "Game Settings",
+            onClick = onSettings,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = (-12).dp, y = (-26).dp),
+        )
+    }
+}
+
+/**
+ * Dedicated gaming controls face:
+ * - Center: Round D-pad / WASD cluster (W, A, S, D, Space) remappable via Pad.GAME.
+ * - Satellite Buttons: ESC (Pause), SHIFT (Nitro/Drift), E (Action), Settings (Gear).
+ * - Live Gyro Pitch driving indicator (hands-free gas/brake while pressing buttons).
+ */
+@Composable
+private fun GameControlsFace(
+    bindings: Bindings,
+    key: (RemoteKey, Haptics.Kind) -> Unit,
+    onSettings: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val gyroGas by PointerBus.wheelGyroGas.collectAsState()
+    val gyroBrake by PointerBus.wheelGyroBrake.collectAsState()
+    val gasColor = Color(0xFF00E676)
+    val brakeColor = Color(0xFFFF334B)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Gyro Acceleration / Braking Live Status Feedback (Forza hands-free gyro)
+        val gyroStatus = when {
+            gyroGas -> "▲ GYRO GAS"
+            gyroBrake -> "▼ GYRO BRAKE"
+            else -> null
+        }
+        val gyroStatusColor = when {
+            gyroGas -> gasColor
+            gyroBrake -> brakeColor
+            else -> Color.Transparent
+        }
+
+        if (gyroStatus != null) {
+            Text(
+                text = gyroStatus,
+                color = gyroStatusColor,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .clip(CircleShape)
+                    .background(gyroStatusColor.copy(alpha = 0.2f))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+        }
+
+        // Center: Customizable Game RingPad (W, A, S, D, Space)
+        RingPad(
+            pad = Pad.GAME,
+            bindings = bindings,
+            onKey = key,
+            modifier = Modifier.size(134.dp),
+        )
+
+        // Satellite Quick Action Buttons:
+        // Top-Left: ESC (Pause / Menu)
+        GameButton(
+            label = "ESC",
+            size = 30.dp,
+            contentDescription = "Escape / Pause",
+            onClick = { key(RemoteKey.ESCAPE, Haptics.Kind.CLICK) },
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = 4.dp, y = (-36).dp),
+        )
+
+        // Top-Right: SHIFT (Drift / Sprint / Nitro)
+        GameButton(
+            label = "SHF",
+            size = 30.dp,
+            primary = true,
+            contentDescription = "Shift / Drift",
+            onClick = { key(RemoteKey.SHIFT, Haptics.Kind.CLICK) },
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = (-4).dp, y = (-36).dp),
+        )
+
+        // Bottom-Left: E (Action / Horn)
+        GameButton(
+            label = "E",
+            size = 28.dp,
+            contentDescription = "E / Action",
+            onClick = { key(RemoteKey.KEY_E, Haptics.Kind.CLICK) },
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = 8.dp, y = 36.dp),
+        )
+
+        // Bottom-Right: Settings Button (Direct shortcut to Remap / Settings)
+        GameButton(
+            icon = R.drawable.ic_settings,
+            size = 28.dp,
+            contentDescription = "Game Settings",
+            onClick = onSettings,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = (-8).dp, y = 36.dp),
+        )
+    }
+}
+
+/** A compact tactile gaming button for satellite actions (ESC, SHIFT, E, Settings). */
+@Composable
+private fun GameButton(
+    label: String? = null,
+    @DrawableRes icon: Int? = null,
+    size: Dp = 30.dp,
+    primary: Boolean = false,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(if (primary) colors.primary else colors.surfaceContainerHigh.copy(alpha = 0.92f))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        PointerBus.touching(true)
+                        tryAwaitRelease()
+                        PointerBus.touching(false)
+                    },
+                    onTap = { onClick() },
+                )
+            }
+            .semantics {
+                role = Role.Button
+                this.contentDescription = contentDescription
+                onClick {
+                    onClick()
+                    true
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (icon != null) {
+            Icon(
+                painterResource(icon),
+                contentDescription = contentDescription,
+                modifier = Modifier.size(size * 0.52f),
+                tint = if (primary) colors.onPrimary else colors.onSurface,
+            )
+        } else if (label != null) {
+            Text(
+                label,
+                color = if (primary) colors.onPrimary else colors.onSurface,
+                fontSize = (size.value * 0.36f).sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
             )
         }
     }

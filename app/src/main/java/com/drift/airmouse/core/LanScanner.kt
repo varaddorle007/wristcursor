@@ -1,5 +1,6 @@
 package com.drift.airmouse.core
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Network
 import android.net.nsd.NsdManager
@@ -236,6 +237,7 @@ object LanScanner {
         // Before Android 14 the system resolves one service at a time, so queue them.
         val queue = LinkedBlockingQueue<Pair<String, NsdServiceInfo>>()
 
+        @SuppressLint("NewApi")
         fun resolved(type: String, info: NsdServiceInfo, addresses: List<InetAddress>) {
             if (finished.get()) return
             val ip = addresses.firstOrNull { it is Inet4Address }?.hostAddress ?: return

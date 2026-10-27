@@ -207,7 +207,7 @@ fun rememberGate(): State<GateStatus> {
 
 fun modeIcon(mode: Mode): Int = when (mode) {
     Mode.MOUSE -> R.drawable.ic_mouse
-    Mode.WHEEL -> R.drawable.ic_wheel
+    Mode.GAME -> R.drawable.ic_console
     Mode.TOUCHPAD -> R.drawable.ic_touchpad
     Mode.REMOTE -> R.drawable.ic_remote
     Mode.SLIDES -> R.drawable.ic_slides
@@ -251,7 +251,9 @@ fun keyIcon(key: RemoteKey): Int? = when (key) {
     RemoteKey.VOLUME_DOWN -> R.drawable.ic_volume_down
     RemoteKey.MUTE -> R.drawable.ic_mute
     RemoteKey.BACKSPACE -> R.drawable.ic_backspace
-    RemoteKey.NONE -> null
+    RemoteKey.SPACE, RemoteKey.SHIFT,
+    RemoteKey.KEY_W, RemoteKey.KEY_A, RemoteKey.KEY_S, RemoteKey.KEY_D, RemoteKey.KEY_E,
+    RemoteKey.ESCAPE, RemoteKey.NONE -> null
 }
 
 /** The mode name at the top of the steering screen; tap it to pick another mode. */

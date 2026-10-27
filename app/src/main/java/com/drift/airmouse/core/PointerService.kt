@@ -90,10 +90,13 @@ object PointerBus {
 
     /** Live car steering wheel metrics. */
     val wheelAngle = MutableStateFlow(0f)
+    val wheelPitch = MutableStateFlow(0f)
     val wheelSteer = MutableStateFlow(0f)
     val wheelThrottle = MutableStateFlow(false)
     val wheelBrake = MutableStateFlow(false)
     val wheelNitro = MutableStateFlow(false)
+    val wheelGyroGas = MutableStateFlow(false)
+    val wheelGyroBrake = MutableStateFlow(false)
 
     /** The last key the current connection couldn't send (Wi-Fi can't press media keys), if any. */
     val unsupported = MutableStateFlow<RemoteKey?>(null)
@@ -158,6 +161,7 @@ class PointerService : Service(), SensorEventListener {
     private var wheelSensor: Sensor? = null
     private var wheelSensorOn = false
     private var wheelCenterRoll = 0f
+    private var wheelCenterPitch = 0f
     private var wheelCalibrated = false
     private val rotMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
@@ -383,7 +387,7 @@ class PointerService : Service(), SensorEventListener {
     private fun refreshSensing() {
         val mode = PointerBus.mode.value
         setGyro(connected && mode == Mode.MOUSE)
-        setWheelSensing(connected && mode == Mode.WHEEL)
+        setWheelSensing(connected && mode == Mode.GAME)
         setAccelerometer(connected && (pinchActive() || tuning.shake != ShakeAction.OFF))
     }
 
@@ -417,10 +421,13 @@ class PointerService : Service(), SensorEventListener {
             wheelFilter.reset()
             lastWheelNanos = 0L
             PointerBus.wheelAngle.value = 0f
+            PointerBus.wheelPitch.value = 0f
             PointerBus.wheelSteer.value = 0f
             PointerBus.wheelThrottle.value = false
             PointerBus.wheelBrake.value = false
             PointerBus.wheelNitro.value = false
+            PointerBus.wheelGyroGas.value = false
+            PointerBus.wheelGyroBrake.value = false
             lastActivityMs = SystemClock.uptimeMillis()
             sensors.registerListener(this, sensor, tuning.power.samplingUs, 0, motion)
         } else {
@@ -429,6 +436,11 @@ class PointerService : Service(), SensorEventListener {
             wheelCalibrated = false
             wheelFilter.reset()
             lastWheelNanos = 0L
+            PointerBus.wheelAngle.value = 0f
+            PointerBus.wheelPitch.value = 0f
+            PointerBus.wheelSteer.value = 0f
+            PointerBus.wheelGyroGas.value = false
+            PointerBus.wheelGyroBrake.value = false
             link?.wheel(0f, throttle = false, brake = false, nitro = false)
         }
         wheelSensorOn = on
@@ -476,7 +488,7 @@ class PointerService : Service(), SensorEventListener {
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> onAcceleration(event)
             Sensor.TYPE_GAME_ROTATION_VECTOR, Sensor.TYPE_ROTATION_VECTOR -> onWheelTurn(event)
-            else -> if (PointerBus.mode.value == Mode.WHEEL) onWheelGyroFallback(event) else onTurn(event)
+            else -> if (PointerBus.mode.value == Mode.GAME) onWheelGyroFallback(event) else onTurn(event)
         }
     }
 
@@ -498,8 +510,13 @@ class PointerService : Service(), SensorEventListener {
             Math.toDegrees(kotlin.math.atan2(rotMatrix[1].toDouble(), rotMatrix[4].toDouble())).toFloat()
         }
 
+        // Pitch calculation using orientation angles
+        SensorManager.getOrientation(rotMatrix, orientationAngles)
+        val rawPitchDeg = Math.toDegrees(orientationAngles[1].toDouble()).toFloat()
+
         if (!wheelCalibrated) {
             wheelCenterRoll = rawAngleDeg
+            wheelCenterPitch = rawPitchDeg
             wheelFilter.reset()
             lastWheelNanos = event.timestamp
             wheelCalibrated = true
@@ -532,14 +549,31 @@ class PointerService : Service(), SensorEventListener {
             curved * sign
         }
 
+        var deltaPitch = rawPitchDeg - wheelCenterPitch
+        while (deltaPitch > 180f) deltaPitch -= 360f
+        while (deltaPitch < -180f) deltaPitch += 360f
+
+        // Pitch tilt driving:
+        // Tilting wrist forward (top down) -> Gas
+        // Tilting wrist backward (pulling up) -> Brake
+        val gyroGas = deltaPitch < -14f
+        val gyroBrake = deltaPitch > 14f
+
         PointerBus.wheelAngle.value = smoothDelta.coerceIn(-maxAngle, maxAngle)
+        PointerBus.wheelPitch.value = deltaPitch
         PointerBus.wheelSteer.value = steer
+        PointerBus.wheelGyroGas.value = gyroGas
+        PointerBus.wheelGyroBrake.value = gyroBrake
+
+        val activeThrottle = gyroGas || PointerBus.wheelThrottle.value
+        val activeBrake = gyroBrake || PointerBus.wheelBrake.value
+        val activeNitro = PointerBus.wheelNitro.value
 
         link?.wheel(
             steer = steer,
-            throttle = PointerBus.wheelThrottle.value,
-            brake = PointerBus.wheelBrake.value,
-            nitro = PointerBus.wheelNitro.value
+            throttle = activeThrottle,
+            brake = activeBrake,
+            nitro = activeNitro
         )
         lastActivityMs = now
     }
@@ -655,7 +689,7 @@ class PointerService : Service(), SensorEventListener {
             PinchDetector.Event.DOUBLE -> Action.Press(RemoteKey.NEXT)
             else -> null
         }
-        Mode.TOUCHPAD, Mode.REMOTE, Mode.KEYBOARD, Mode.WHEEL -> null
+        Mode.TOUCHPAD, Mode.REMOTE, Mode.KEYBOARD, Mode.GAME -> null
     }
 
     private fun PinchAction.toAction(): Action? = when (this) {

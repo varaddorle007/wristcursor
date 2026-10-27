@@ -81,8 +81,8 @@ fun DriftApp(onClose: () -> Unit) {
         AppScaffold {
             val nav = rememberSwipeDismissableNavController()
             val current by nav.currentBackStackEntryFlow.collectAsState(initial = null)
-            // On the touchpad a rightward drag moves the cursor; it must not close the screen.
-            val swipeBack = !(current?.destination?.route == Routes.PAD && mode == Mode.TOUCHPAD)
+            // On the touchpad or in game mode, finger drags shouldn't close the screen.
+            val swipeBack = !(current?.destination?.route == Routes.PAD && (mode == Mode.TOUCHPAD || mode == Mode.GAME))
             SwipeDismissableNavHost(navController = nav, startDestination = start, userSwipeEnabled = swipeBack) {
                 composable(Routes.WELCOME) {
                     WelcomeScreen(
@@ -121,6 +121,7 @@ fun DriftApp(onClose: () -> Unit) {
                         onModes = { nav.navigate(Routes.MODES) },
                         // Shake to go back: leave steering running, like swiping back.
                         onBack = { nav.popBackStack() },
+                        onSettings = { nav.navigate(Routes.SETTINGS) },
                     )
                 }
                 composable(Routes.PAIR) {

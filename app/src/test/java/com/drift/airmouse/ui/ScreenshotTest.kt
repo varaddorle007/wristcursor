@@ -126,4 +126,10 @@ class ScreenshotTest {
 
     @Test
     fun homeInWebTheme() = shot("11-home-web-theme", ThemeId.WEB) { HomeScreen({}, {}, {}, {}, {}) }
+
+    @Test
+    fun game() {
+        steering(Mode.GAME)
+        shot("12-game") { SteerScreen({}, {}, {}) }
+    }
 }

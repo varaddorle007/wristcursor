@@ -57,6 +57,13 @@ class Pointer {
                 "enter" -> press(KeyEvent.VK_ENTER)
                 "esc" -> press(KeyEvent.VK_ESCAPE)
                 "backspace" -> press(KeyEvent.VK_BACK_SPACE)
+                "space" -> press(KeyEvent.VK_SPACE)
+                "shift" -> press(KeyEvent.VK_SHIFT)
+                "w" -> press(KeyEvent.VK_W)
+                "a" -> press(KeyEvent.VK_A)
+                "s" -> press(KeyEvent.VK_S)
+                "d" -> press(KeyEvent.VK_D)
+                "e" -> press(KeyEvent.VK_E)
             }
         }
     }

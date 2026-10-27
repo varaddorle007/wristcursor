@@ -26,7 +26,29 @@ enum class RemoteKey(val label: String) {
     VOLUME_DOWN("Volume down"),
     MUTE("Mute"),
     BACKSPACE("Delete"),
-    NONE("Nothing"),
+    SPACE("Space (Nitro / Jump)"),
+    SHIFT("Shift (Drift / Sprint)"),
+    KEY_W("W (Forward)"),
+    KEY_A("A (Left)"),
+    KEY_S("S (Brake / Back)"),
+    KEY_D("D (Right)"),
+    KEY_E("E (Action)"),
+    ESCAPE("Esc (Pause / Menu)"),
+    NONE("Nothing");
+
+    val shortLabel: String
+        get() = when (this) {
+            OK -> "OK"
+            KEY_W -> "W"
+            KEY_A -> "A"
+            KEY_S -> "S"
+            KEY_D -> "D"
+            KEY_E -> "E"
+            SPACE -> "SPACE"
+            SHIFT -> "SHIFT"
+            ESCAPE -> "ESC"
+            else -> label
+        }
 }
 
 /** A way to reach the computer. Every call arrives on the service's motion thread. */

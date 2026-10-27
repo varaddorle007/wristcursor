@@ -165,10 +165,10 @@ private fun PadLabel(key: RemoteKey, hold: RemoteKey, size: Dp, tint: androidx.c
             Icon(painterResource(icon), contentDescription = key.label, modifier = Modifier.size(size), tint = tint)
         } else if (key != RemoteKey.NONE) {
             Text(
-                if (key == RemoteKey.OK) "OK" else key.label,
+                key.shortLabel,
                 color = tint,
                 fontWeight = FontWeight.Bold,
-                fontSize = (size.value * 0.62f).sp,
+                fontSize = (size.value * 0.55f).sp,
                 maxLines = 1,
             )
         }

@@ -1,9 +1,10 @@
 package com.drift.airmouse.core
 
-/** The two round button pads. */
+/** The round button pads. */
 enum class Pad(val title: String) {
     REMOTE("TV remote"),
     MEDIA("Media"),
+    GAME("Game pad"),
 }
 
 /** The five places on a round pad: four around the edge and one in the middle. */
@@ -47,6 +48,13 @@ object Remap {
             Slot.LEFT -> Binding(RemoteKey.PREVIOUS, RemoteKey.REWIND)
             Slot.CENTER -> Binding(RemoteKey.PLAY_PAUSE, RemoteKey.MUTE)
         }
+        Pad.GAME -> when (slot) {
+            Slot.UP -> Binding(RemoteKey.KEY_W, RemoteKey.UP)
+            Slot.LEFT -> Binding(RemoteKey.KEY_A, RemoteKey.LEFT)
+            Slot.DOWN -> Binding(RemoteKey.KEY_S, RemoteKey.DOWN)
+            Slot.RIGHT -> Binding(RemoteKey.KEY_D, RemoteKey.RIGHT)
+            Slot.CENTER -> Binding(RemoteKey.SPACE, RemoteKey.OK)
+        }
     }
 
     /** Keys that keep firing while you hold them, when the button has no long-press action. */
@@ -66,5 +74,7 @@ object Remap {
     private val REPEATING = setOf(
         RemoteKey.UP, RemoteKey.DOWN, RemoteKey.LEFT, RemoteKey.RIGHT,
         RemoteKey.VOLUME_UP, RemoteKey.VOLUME_DOWN,
+        RemoteKey.KEY_W, RemoteKey.KEY_A, RemoteKey.KEY_S, RemoteKey.KEY_D,
+        RemoteKey.SPACE,
     )
 }

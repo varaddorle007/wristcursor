@@ -53,6 +53,14 @@ object Protocol {
         RemoteKey.VOLUME_UP -> "media volup"
         RemoteKey.VOLUME_DOWN -> "media voldown"
         RemoteKey.MUTE -> "media mute"
+        RemoteKey.SPACE -> "key space"
+        RemoteKey.SHIFT -> "key shift"
+        RemoteKey.KEY_W -> "key w"
+        RemoteKey.KEY_A -> "key a"
+        RemoteKey.KEY_S -> "key s"
+        RemoteKey.KEY_D -> "key d"
+        RemoteKey.KEY_E -> "key e"
+        RemoteKey.ESCAPE -> "key esc"
         else -> null
     }
 }
