@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A mint cursor drifting up-left, with two motion trails. Kept inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/launcher_mint"
+        android:pathData="M48,32 L48,72 L58,62.5 L65,77 L72,74 L65,59.5 L78,59.5 Z" />
+    <path
+        android:strokeColor="@color/launcher_mint"
+        android:strokeAlpha="0.6"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M35,52 Q37,42 44,37" />
+    <path
+        android:strokeColor="@color/launcher_mint"
+        android:strokeAlpha="0.3"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M29,62 Q31,48 41,43" />
+</vector>
