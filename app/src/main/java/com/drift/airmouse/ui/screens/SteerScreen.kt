@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
@@ -96,6 +98,9 @@ import com.drift.airmouse.ui.RingPad
 import com.drift.airmouse.ui.themeArt
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.PI
 
 private const val SLIDE_STEP_PX = 90f
 private const val DIM_BRIGHTNESS = 0.2f
@@ -803,63 +808,275 @@ private fun WheelFace(
 
             // Draw Rotating Racing Steering Wheel
             rotate(degrees = angle, pivot = Offset(cx, cy)) {
-                // Outer Rim
+                val rimW = 13.dp.toPx()
+                val hubR = r * 0.42f
+                val spokePlateH = 14.dp.toPx()
+
+                val spokeBase = Color(0xFF272B32)
+                val spokeHighlight = Color(0xFF566070)
+                val spokeShadow = Color(0xFF131518)
+                val holeBg = Color(0xFF0C0E11)
+
+                // Left Spoke (Horizontal plate with racing speed holes)
+                val leftSpokeX = cx - r + rimW * 0.35f
+                val leftSpokeW = (cx - hubR + 2.dp.toPx()) - leftSpokeX
+                if (leftSpokeW > 0) {
+                    drawRoundRect(
+                        color = spokeBase,
+                        topLeft = Offset(leftSpokeX, cy - spokePlateH / 2f),
+                        size = Size(leftSpokeW, spokePlateH),
+                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
+                    )
+                    drawLine(
+                        color = spokeHighlight,
+                        start = Offset(leftSpokeX + 1.dp.toPx(), cy - spokePlateH / 2f),
+                        end = Offset(leftSpokeX + leftSpokeW - 1.dp.toPx(), cy - spokePlateH / 2f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    drawLine(
+                        color = spokeShadow,
+                        start = Offset(leftSpokeX + 1.dp.toPx(), cy + spokePlateH / 2f),
+                        end = Offset(leftSpokeX + leftSpokeW - 1.dp.toPx(), cy + spokePlateH / 2f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    val leftHoles = listOf(0.24f to 3.8.dp.toPx(), 0.54f to 3.0.dp.toPx(), 0.82f to 2.2.dp.toPx())
+                    for ((pct, holeR) in leftHoles) {
+                        val hx = leftSpokeX + leftSpokeW * pct
+                        drawCircle(color = holeBg, radius = holeR, center = Offset(hx, cy))
+                        drawCircle(
+                            color = spokeHighlight.copy(alpha = 0.5f),
+                            radius = holeR,
+                            center = Offset(hx, cy),
+                            style = Stroke(width = 0.75.dp.toPx()),
+                        )
+                    }
+                }
+
+                // Right Spoke (Horizontal plate with racing speed holes)
+                val rightSpokeX = cx + hubR - 2.dp.toPx()
+                val rightSpokeW = (cx + r - rimW * 0.35f) - rightSpokeX
+                if (rightSpokeW > 0) {
+                    drawRoundRect(
+                        color = spokeBase,
+                        topLeft = Offset(rightSpokeX, cy - spokePlateH / 2f),
+                        size = Size(rightSpokeW, spokePlateH),
+                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
+                    )
+                    drawLine(
+                        color = spokeHighlight,
+                        start = Offset(rightSpokeX + 1.dp.toPx(), cy - spokePlateH / 2f),
+                        end = Offset(rightSpokeX + rightSpokeW - 1.dp.toPx(), cy - spokePlateH / 2f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    drawLine(
+                        color = spokeShadow,
+                        start = Offset(rightSpokeX + 1.dp.toPx(), cy + spokePlateH / 2f),
+                        end = Offset(rightSpokeX + rightSpokeW - 1.dp.toPx(), cy + spokePlateH / 2f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    val rightHoles = listOf(0.18f to 2.2.dp.toPx(), 0.46f to 3.0.dp.toPx(), 0.76f to 3.8.dp.toPx())
+                    for ((pct, holeR) in rightHoles) {
+                        val hx = rightSpokeX + rightSpokeW * pct
+                        drawCircle(color = holeBg, radius = holeR, center = Offset(hx, cy))
+                        drawCircle(
+                            color = spokeHighlight.copy(alpha = 0.5f),
+                            radius = holeR,
+                            center = Offset(hx, cy),
+                            style = Stroke(width = 0.75.dp.toPx()),
+                        )
+                    }
+                }
+
+                // Bottom Spoke (Vertical plate with racing cutouts)
+                val botSpokeY = cy + hubR - 2.dp.toPx()
+                val botSpokeH = (cy + r - rimW * 0.35f) - botSpokeY
+                val botSpokeW = 13.dp.toPx()
+                if (botSpokeH > 0) {
+                    drawRoundRect(
+                        color = spokeBase,
+                        topLeft = Offset(cx - botSpokeW / 2f, botSpokeY),
+                        size = Size(botSpokeW, botSpokeH),
+                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
+                    )
+                    drawLine(
+                        color = spokeHighlight,
+                        start = Offset(cx - botSpokeW / 2f, botSpokeY + 1.dp.toPx()),
+                        end = Offset(cx - botSpokeW / 2f, botSpokeY + botSpokeH - 1.dp.toPx()),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    drawLine(
+                        color = spokeShadow,
+                        start = Offset(cx + botSpokeW / 2f, botSpokeY + 1.dp.toPx()),
+                        end = Offset(cx + botSpokeW / 2f, botSpokeY + botSpokeH - 1.dp.toPx()),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    val botHoles = listOf(0.35f to 3.2.dp.toPx(), 0.72f to 2.5.dp.toPx())
+                    for ((pct, holeR) in botHoles) {
+                        val hy = botSpokeY + botSpokeH * pct
+                        drawCircle(color = holeBg, radius = holeR, center = Offset(cx, hy))
+                        drawCircle(
+                            color = spokeHighlight.copy(alpha = 0.5f),
+                            radius = holeR,
+                            center = Offset(cx, hy),
+                            style = Stroke(width = 0.75.dp.toPx()),
+                        )
+                    }
+                }
+
+                // Outer Rim: Outer Shadow Edge
                 drawCircle(
-                    color = colors.onSurface.copy(alpha = 0.85f),
-                    radius = r,
+                    color = Color(0xFF0F1114),
+                    radius = r + rimW * 0.5f,
                     center = Offset(cx, cy),
-                    style = Stroke(width = 10.dp.toPx()),
+                    style = Stroke(width = 1.5.dp.toPx()),
                 )
 
-                // Top 12 O'Clock Racing Alignment Stripe
+                // Outer Rim: Rich Textured Leather/Suede Grip Body
+                drawCircle(
+                    color = Color(0xFF1E2228),
+                    radius = r,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = rimW),
+                )
+
+                // Outer Rim: 3D Specular Highlight Line
+                drawCircle(
+                    color = Color(0xFF38404C),
+                    radius = r - rimW * 0.22f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 1.5.dp.toPx()),
+                )
+
+                // Outer Rim: Inner Shadow Edge
+                drawCircle(
+                    color = Color(0xFF0F1114),
+                    radius = r - rimW * 0.5f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 1.5.dp.toPx()),
+                )
+
+                // Ergonomic Contoured Thumb Rests (10-and-2 position)
                 drawArc(
-                    color = primary,
-                    startAngle = 262f,
-                    sweepAngle = 16f,
+                    color = Color(0xFF15181C),
+                    startAngle = 168f,
+                    sweepAngle = 36f,
                     useCenter = false,
                     topLeft = Offset(cx - r, cy - r),
                     size = Size(r * 2f, r * 2f),
-                    style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Butt),
+                    style = Stroke(width = rimW + 3.dp.toPx(), cap = StrokeCap.Round),
+                )
+                drawArc(
+                    color = Color(0xFF4A5463),
+                    startAngle = 172f,
+                    sweepAngle = 28f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round),
                 )
 
-                // Left Spoke
-                drawLine(
-                    color = colors.onSurfaceVariant,
-                    start = Offset(cx - r * 0.35f, cy),
-                    end = Offset(cx - r + 5.dp.toPx(), cy),
-                    strokeWidth = 6.dp.toPx(),
-                    cap = StrokeCap.Round,
+                drawArc(
+                    color = Color(0xFF15181C),
+                    startAngle = 336f,
+                    sweepAngle = 36f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = rimW + 3.dp.toPx(), cap = StrokeCap.Round),
+                )
+                drawArc(
+                    color = Color(0xFF4A5463),
+                    startAngle = 340f,
+                    sweepAngle = 28f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round),
                 )
 
-                // Right Spoke
-                drawLine(
-                    color = colors.onSurfaceVariant,
-                    start = Offset(cx + r * 0.35f, cy),
-                    end = Offset(cx + r - 5.dp.toPx(), cy),
-                    strokeWidth = 6.dp.toPx(),
-                    cap = StrokeCap.Round,
+                // Top 12 O'Clock Racing Alignment Stripe with Pinstripe Borders
+                drawArc(
+                    color = Color(0xFFE2E7ED),
+                    startAngle = 262f,
+                    sweepAngle = 1.5f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = rimW + 1.dp.toPx(), cap = StrokeCap.Butt),
+                )
+                drawArc(
+                    color = Color(0xFFE2E7ED),
+                    startAngle = 276.5f,
+                    sweepAngle = 1.5f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = rimW + 1.dp.toPx(), cap = StrokeCap.Butt),
+                )
+                drawArc(
+                    color = primary,
+                    startAngle = 263.5f,
+                    sweepAngle = 13f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r, cy - r),
+                    size = Size(r * 2f, r * 2f),
+                    style = Stroke(width = rimW + 1.5.dp.toPx(), cap = StrokeCap.Butt),
                 )
 
-                // Bottom Spoke
-                drawLine(
-                    color = colors.onSurfaceVariant,
-                    start = Offset(cx, cy + r * 0.35f),
-                    end = Offset(cx, cy + r - 5.dp.toPx()),
-                    strokeWidth = 6.dp.toPx(),
-                    cap = StrokeCap.Round,
+                // Center Billet Aluminum Mounting Hub Flange
+                drawCircle(
+                    color = Color(0xFF1E2228),
+                    radius = hubR,
+                    center = Offset(cx, cy),
+                )
+                drawCircle(
+                    color = Color(0xFF4C5564),
+                    radius = hubR,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 1.8.dp.toPx()),
+                )
+                drawCircle(
+                    color = Color(0xFF121417),
+                    radius = hubR * 0.85f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 1.2.dp.toPx()),
                 )
 
-                // Center Hub Disc
+                // 6 Radial Hex Allen Bolts
+                val boltRadius = hubR * 0.72f
+                for (i in 0 until 6) {
+                    val boltAngle = i * (PI * 2.0 / 6.0)
+                    val bx = (cx + boltRadius * cos(boltAngle)).toFloat()
+                    val by = (cy + boltRadius * sin(boltAngle)).toFloat()
+                    drawCircle(
+                        color = Color(0xFF383F4C),
+                        radius = 2.2.dp.toPx(),
+                        center = Offset(bx, by),
+                    )
+                    drawCircle(
+                        color = Color(0xFF0F1114),
+                        radius = 1.1.dp.toPx(),
+                        center = Offset(bx, by),
+                    )
+                    drawCircle(
+                        color = Color(0xFF8A95A5),
+                        radius = 0.5.dp.toPx(),
+                        center = Offset(bx - 0.4.dp.toPx(), by - 0.4.dp.toPx()),
+                    )
+                }
+
+                // Inner Recessed Horn Button Disc
+                val hornR = hubR * 0.54f
                 drawCircle(
                     color = colors.surfaceContainer,
-                    radius = r * 0.36f,
+                    radius = hornR,
                     center = Offset(cx, cy),
                 )
                 drawCircle(
-                    color = primary.copy(alpha = 0.6f),
-                    radius = r * 0.36f,
+                    color = primary.copy(alpha = 0.75f),
+                    radius = hornR,
                     center = Offset(cx, cy),
-                    style = Stroke(width = 2.dp.toPx()),
+                    style = Stroke(width = 1.8.dp.toPx()),
                 )
             }
         }
@@ -867,13 +1084,13 @@ private fun WheelFace(
         // Center Horn Hub with Digital Angle Readout and Pitch Status
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy((-1).dp),
         ) {
             val angleStr = if (abs(angle) < 1f) "0°" else if (angle > 0) "+${angle.toInt()}°" else "${angle.toInt()}°"
             Text(
                 text = angleStr,
                 color = primary,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
             )
             val subText = when {
@@ -889,8 +1106,9 @@ private fun WheelFace(
             Text(
                 text = subText,
                 color = subColor,
-                fontSize = 9.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp,
             )
         }
 
@@ -898,41 +1116,119 @@ private fun WheelFace(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 6.dp)
-                .size(width = 54.dp, height = 74.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(if (isBrake) brakeColor.copy(alpha = 0.55f) else Color.Transparent)
-                .padding(4.dp),
+                .padding(start = 5.dp)
+                .size(width = 50.dp, height = 66.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isBrake) brakeColor.copy(alpha = 0.50f) else brakeColor.copy(alpha = 0.15f))
+                .border(
+                    width = 2.dp,
+                    color = if (isBrake) brakeColor else brakeColor.copy(alpha = 0.75f),
+                    shape = RoundedCornerShape(14.dp),
+                )
+                .padding(horizontal = 4.dp, vertical = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                "BRAKE",
-                color = if (isBrake) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                // Top pedal grip slots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(bottom = 3.dp),
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 6.dp, height = 2.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(if (isBrake) Color.White.copy(alpha = 0.85f) else brakeColor.copy(alpha = 0.6f)),
+                        )
+                    }
+                }
+                Text(
+                    "BRAKE",
+                    color = if (isBrake) Color.White else brakeColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.5.sp,
+                )
+                // Bottom pedal grip slots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(top = 3.dp),
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 6.dp, height = 2.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(if (isBrake) Color.White.copy(alpha = 0.85f) else brakeColor.copy(alpha = 0.6f)),
+                        )
+                    }
+                }
+            }
         }
 
         // Right Touch Paddle: GAS
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 6.dp)
-                .size(width = 54.dp, height = 74.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(if (isGas) gasColor.copy(alpha = 0.55f) else Color.Transparent)
-                .padding(4.dp),
+                .padding(end = 5.dp)
+                .size(width = 50.dp, height = 66.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isGas) gasColor.copy(alpha = 0.50f) else gasColor.copy(alpha = 0.15f))
+                .border(
+                    width = 2.dp,
+                    color = if (isGas) gasColor else gasColor.copy(alpha = 0.75f),
+                    shape = RoundedCornerShape(14.dp),
+                )
+                .padding(horizontal = 4.dp, vertical = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                "GAS",
-                color = if (isGas) Color.White else colors.onSurfaceVariant.copy(alpha = 0.7f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                // Top pedal grip slots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(bottom = 3.dp),
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 6.dp, height = 2.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(if (isGas) Color.White.copy(alpha = 0.85f) else gasColor.copy(alpha = 0.6f)),
+                        )
+                    }
+                }
+                Text(
+                    "GAS",
+                    color = if (isGas) Color.White else gasColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.5.sp,
+                )
+                // Bottom pedal grip slots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(top = 3.dp),
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 6.dp, height = 2.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(if (isGas) Color.White.copy(alpha = 0.85f) else gasColor.copy(alpha = 0.6f)),
+                        )
+                    }
+                }
+            }
         }
 
-        // Direct Settings Shortcut Button (Bottom-Right)
+        // Direct Settings Shortcut Button (Moved comfortably above the bottom bezel & Stop button)
         GameButton(
             icon = R.drawable.ic_settings,
             size = 28.dp,
@@ -940,7 +1236,7 @@ private fun WheelFace(
             onClick = onSettings,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .offset(x = (-12).dp, y = (-26).dp),
+                .offset(x = (-15).dp, y = (-42).dp),
         )
     }
 }
@@ -1069,6 +1365,11 @@ private fun GameButton(
             .size(size)
             .clip(CircleShape)
             .background(if (primary) colors.primary else colors.surfaceContainerHigh.copy(alpha = 0.92f))
+            .border(
+                width = 1.dp,
+                color = if (primary) colors.primary else colors.outline.copy(alpha = 0.35f),
+                shape = CircleShape,
+            )
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
