@@ -82,6 +82,18 @@ class MotionFilterTest {
     }
 
     @Test
+    fun precisionHoverCalmsMicroMovementNearButtons() {
+        val filter = MotionFilter(Tuning(steadiness = 3, acceleration = 0))
+        // Small rate just above deadzone (0.035f + 0.03f = 0.065f)
+        val (hoverX, _) = run(filter, samples = 30) { 0.065f to 0f }
+        // Faster rate (0.035f + 0.30f = 0.335f, 10x higher live delta)
+        val filterFast = MotionFilter(Tuning(steadiness = 3, acceleration = 0))
+        val (fastX, _) = run(filterFast, samples = 30) { 0.335f to 0f }
+        // Because of hover progressive damping, fastX / hoverX > 15 (sub-linear fine targeting)
+        assertTrue("hoverX=$hoverX fastX=$fastX", abs(fastX) > abs(hoverX) * 15f)
+    }
+
+    @Test
     fun oneEuroFollowsFastChangesQuickly() {
         val filter = OneEuroFilter(minCutoff = 4.5f, beta = 0.5f)
         filter.filter(0f, 0.01f)

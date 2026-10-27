@@ -45,8 +45,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -312,6 +315,9 @@ private fun MouseFace(
     val scrollState by PointerBus.mouseScrollState.collectAsState()
     var pressed by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var tapCount by remember { mutableStateOf(0) }
+    var tapJob by remember { mutableStateOf<Job?>(null) }
     val flash = remember { Animatable(0f) }
     LaunchedEffect(pulse) {
         if (pulse > 0) {
@@ -349,37 +355,64 @@ private fun MouseFace(
                 .fillMaxSize(0.82f)
                 .clip(CircleShape)
                 .pointerInput(tuning.holdDrags, paused) {
-                    detectTapGestures(
-                        onPress = {
-                            pressed = true
-                            PointerBus.frozen = true
-                            PointerBus.touching(true)
-                            tryAwaitRelease()
-                            if (dragging) {
-                                PointerBus.perform(Action.DragEnd)
-                                dragging = false
-                                buzz(Haptics.Kind.TICK)
-                            }
-                            PointerBus.frozen = false
-                            PointerBus.touching(false)
-                            pressed = false
-                        },
-                        onTap = { if (!paused) act(Action.Click, Haptics.Kind.CLICK) },
-                        onDoubleTap = { if (!paused) act(Action.DoubleClick, Haptics.Kind.CLICK) },
-                        onLongPress = {
-                            when {
-                                paused -> Unit
-                                tuning.holdDrags -> {
-                                    // Grab: button down, the cursor follows your wrist until you let go.
-                                    PointerBus.perform(Action.DragStart)
-                                    dragging = true
-                                    PointerBus.frozen = false
-                                    buzz(Haptics.Kind.HEAVY)
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        pressed = true
+                        PointerBus.frozen = true
+                        PointerBus.touching(true)
+                        val downTime = System.currentTimeMillis()
+
+                        val up = waitForUpOrCancellation()
+                        val upTime = System.currentTimeMillis()
+                        val holdDuration = upTime - downTime
+                        PointerBus.touching(false)
+                        pressed = false
+
+                        if (up != null && holdDuration < 320L && !paused) {
+                            tapCount++
+                            tapJob?.cancel()
+                            if (tapCount >= 3) {
+                                // Triple tap: Right Click!
+                                tapCount = 0
+                                PointerBus.freezeFor(350L)
+                                act(Action.RightClick, Haptics.Kind.HEAVY)
+                            } else {
+                                tapJob = scope.launch {
+                                    delay(260L)
+                                    val count = tapCount
+                                    tapCount = 0
+                                    if (count == 2) {
+                                        // Double tap: Left Click!
+                                        PointerBus.freezeFor(350L)
+                                        act(Action.Click, Haptics.Kind.CLICK)
+                                    } else if (count == 1) {
+                                        // Single tap: Left Click!
+                                        PointerBus.freezeFor(350L)
+                                        act(Action.Click, Haptics.Kind.CLICK)
+                                    }
                                 }
-                                else -> act(Action.RightClick, Haptics.Kind.HEAVY)
                             }
-                        },
-                    )
+                        } else if (holdDuration >= 320L && !paused) {
+                            tapCount = 0
+                            tapJob?.cancel()
+                            if (tuning.holdDrags) {
+                                PointerBus.perform(Action.DragStart)
+                                dragging = true
+                                PointerBus.frozen = false
+                                buzz(Haptics.Kind.HEAVY)
+                            } else {
+                                PointerBus.freezeFor(350L)
+                                act(Action.RightClick, Haptics.Kind.HEAVY)
+                            }
+                        }
+
+                        if (dragging) {
+                            PointerBus.perform(Action.DragEnd)
+                            dragging = false
+                            buzz(Haptics.Kind.TICK)
+                        }
+                        PointerBus.frozen = false
+                    }
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -414,8 +447,7 @@ private fun MouseFace(
                         scrollState > 0 -> "Scrolling down\nTilt neutral to stop"
                         paused -> if (tuning.shake == ShakeAction.PAUSE) "Paused\nShake to resume" else "Paused"
                         grabbed -> "Holding\nLet go to drop"
-                        tuning.pinch -> "1 pinch: ${tuning.pinchOnce.label.lowercase()}\n2 pinches: ${tuning.pinchTwice.label.lowercase()}"
-                        else -> "Tilt to move\nTap to click"
+                        else -> "Double tap: Left click\nTriple tap: Right click"
                     },
                     maxLines = 2,
                 )

@@ -129,6 +129,16 @@ object PointerBus {
     @Volatile
     var frozen = false
 
+    @Volatile
+    var freezeUntilMs = 0L
+
+    fun freezeFor(ms: Long = 320L) {
+        freezeUntilMs = SystemClock.uptimeMillis() + ms
+    }
+
+    val isFrozen: Boolean
+        get() = frozen || SystemClock.uptimeMillis() < freezeUntilMs
+
     /**
      * Tapping the screen jolts the watch like a pinch does. Pinches are ignored until this
      * time (uptime ms); screens push it forward while a finger is down and just after.
@@ -665,8 +675,8 @@ class PointerService : Service(), SensorEventListener {
         val ry = event.values[1] - (bias?.biasY ?: 0f)
         val rz = event.values[2] - (bias?.biasZ ?: 0f)
         pinch.onTurnRate(sqrt(rx * rx + ry * ry + rz * rz))
-        // Hold the cursor still while a finger is on the pad, a pinch is being read, or wrist is tilt-scrolling.
-        if (PointerBus.frozen || pinch.waiting || PointerBus.paused.value || PointerBus.mouseScrollState.value != 0) {
+        // Hold the cursor still while a finger is on the pad, right after a click, while a pinch is read, or wrist is tilt-scrolling.
+        if (PointerBus.isFrozen || pinch.waiting || PointerBus.paused.value || PointerBus.mouseScrollState.value != 0) {
             filter.reset()
             pendingX = 0f
             pendingY = 0f
@@ -857,7 +867,10 @@ class PointerService : Service(), SensorEventListener {
             val target = link ?: return@post
             lastActivityMs = SystemClock.uptimeMillis()
             when (action) {
-                Action.Click, Action.DoubleClick, Action.RightClick, Action.DragStart -> PointerBus.clickPulse.value++
+                Action.Click, Action.DoubleClick, Action.RightClick, Action.DragStart -> {
+                    PointerBus.clickPulse.value++
+                    PointerBus.freezeFor(350L)
+                }
                 else -> Unit
             }
             when (action) {
@@ -906,10 +919,7 @@ class PointerService : Service(), SensorEventListener {
                     target.keyUp(action.key)
                 }
                 Action.Click -> target.click(MouseButton.LEFT)
-                Action.DoubleClick -> {
-                    target.click(MouseButton.LEFT)
-                    motion.postDelayed({ link?.click(MouseButton.LEFT) }, DOUBLE_CLICK_GAP_MS)
-                }
+                Action.DoubleClick -> target.doubleClick()
                 Action.RightClick -> target.click(MouseButton.RIGHT)
                 is Action.Scroll -> scroll(target, action.crownPixels)
                 Action.NextSlide -> press(target, RemoteKey.RIGHT)

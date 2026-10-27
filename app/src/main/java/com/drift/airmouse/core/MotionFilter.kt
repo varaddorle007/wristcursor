@@ -55,13 +55,23 @@ class MotionFilter(tuning: Tuning) {
     private fun shape(rate: Float): Float {
         val live = abs(rate) - deadZone
         if (live <= 0f) return 0f
-        return sign(rate) * live * (1f + acceleration * live)
+        // Precision hover damping: when moving slowly to aim at buttons/links,
+        // scale down tremor smoothly (sub-linear easing) so the cursor glides onto targets and stays steady.
+        val hoverScale = if (live < HOVER_THRESHOLD) {
+            val progress = live / HOVER_THRESHOLD
+            0.35f + 0.65f * (progress * progress)
+        } else {
+            1f
+        }
+        val shapedLive = live * hoverScale
+        return sign(rate) * shapedLive * (1f + acceleration * live)
     }
 
     private companion object {
         const val BASE_GAIN = 750f
         const val BETA = 0.8f
         const val MAX_DT = 0.05f
+        const val HOVER_THRESHOLD = 0.15f
         val DEAD_ZONES = floatArrayOf(0.015f, 0.025f, 0.035f, 0.045f, 0.06f)
         val MIN_CUTOFFS = floatArrayOf(5.5f, 4.2f, 3.0f, 2.0f, 1.0f)
     }

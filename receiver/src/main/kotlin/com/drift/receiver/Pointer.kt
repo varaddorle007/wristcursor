@@ -37,7 +37,7 @@ class Pointer {
         when (parts[0]) {
             "m" -> move(parts[1].toInt(), parts[2].toInt())
             "click" -> click(InputEvent.BUTTON1_DOWN_MASK)
-            "double" -> repeat(2) { click(InputEvent.BUTTON1_DOWN_MASK) }
+            "double" -> doubleClick()
             "right" -> click(InputEvent.BUTTON3_DOWN_MASK)
             "down" -> robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
             "up" -> robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
@@ -245,13 +245,31 @@ class Pointer {
     }
 
     private fun click(button: Int) {
-        robot.mousePress(button)
-        robot.mouseRelease(button)
+        runCatching {
+            robot.mousePress(button)
+            Thread.sleep(35)
+            robot.mouseRelease(button)
+        }
+    }
+
+    private fun doubleClick() {
+        runCatching {
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
+            Thread.sleep(35)
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
+            Thread.sleep(60)
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
+            Thread.sleep(35)
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
+        }
     }
 
     private fun press(key: Int) {
-        robot.keyPress(key)
-        robot.keyRelease(key)
+        runCatching {
+            robot.keyPress(key)
+            Thread.sleep(25)
+            robot.keyRelease(key)
+        }
     }
 
     private fun allScreens(): Rectangle =

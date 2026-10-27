@@ -55,6 +55,7 @@ enum class RemoteKey(val label: String) {
 interface PointerLink {
     fun move(dx: Int, dy: Int)
     fun click(button: MouseButton)
+    fun doubleClick() { click(MouseButton.LEFT) }
 
     /** Hold a button down (dragging) until [release]. */
     fun press(button: MouseButton)
@@ -96,6 +97,8 @@ class UdpLink(private val socket: DatagramSocket, private val target: InetAddres
 
     override fun click(button: MouseButton) =
         send(if (button == MouseButton.LEFT) Protocol.CLICK else Protocol.RIGHT)
+
+    override fun doubleClick() = send("double")
 
     override fun press(button: MouseButton) = send(Protocol.DOWN)
 
