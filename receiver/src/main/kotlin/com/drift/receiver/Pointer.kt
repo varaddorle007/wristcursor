@@ -176,24 +176,27 @@ class Pointer {
             currentSteer = newSteer
         }
 
+        val finalBrake = brake
+        val finalThrottle = if (finalBrake) false else throttle
+
         // 2. Throttle (Up / W)
-        if (throttle != currentGas) {
-            if (throttle) {
+        if (finalThrottle != currentGas) {
+            if (finalThrottle) {
                 runCatching { robot.keyPress(KeyEvent.VK_UP); robot.keyPress(KeyEvent.VK_W) }
             } else {
                 runCatching { robot.keyRelease(KeyEvent.VK_UP); robot.keyRelease(KeyEvent.VK_W) }
             }
-            currentGas = throttle
+            currentGas = finalThrottle
         }
 
         // 3. Brake (Down / S)
-        if (brake != currentBrake) {
-            if (brake) {
+        if (finalBrake != currentBrake) {
+            if (finalBrake) {
                 runCatching { robot.keyPress(KeyEvent.VK_DOWN); robot.keyPress(KeyEvent.VK_S) }
             } else {
                 runCatching { robot.keyRelease(KeyEvent.VK_DOWN); robot.keyRelease(KeyEvent.VK_S) }
             }
-            currentBrake = brake
+            currentBrake = finalBrake
         }
 
         // 4. Nitro / Handbrake (Space)

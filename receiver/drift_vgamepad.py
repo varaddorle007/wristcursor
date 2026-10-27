@@ -45,8 +45,8 @@ def main():
             parts = msg.split()
             # Format: wheel <steer_float> <gas_0_1> <brake_0_1> <nitro_0_1>
             steer = float(parts[1]) if len(parts) > 1 else 0.0
-            gas = parts[2] == "1" if len(parts) > 2 else False
             brake = parts[3] == "1" if len(parts) > 3 else False
+            gas = (parts[2] == "1" and not brake) if len(parts) > 2 else False
             nitro = parts[4] == "1" if len(parts) > 4 else False
 
             # Map steering [-1.0, 1.0] -> Left Joystick X [-32767, 32767]

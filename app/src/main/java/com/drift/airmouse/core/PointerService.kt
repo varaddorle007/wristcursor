@@ -648,8 +648,8 @@ class PointerService : Service(), SensorEventListener {
         PointerBus.wheelGyroGas.value = gyroGas
         PointerBus.wheelGyroBrake.value = gyroBrake
 
-        val activeThrottle = gyroGas || PointerBus.wheelThrottle.value
         val activeBrake = gyroBrake || PointerBus.wheelBrake.value
+        val activeThrottle = if (activeBrake) false else (gyroGas || PointerBus.wheelThrottle.value)
         val activeNitro = PointerBus.wheelNitro.value
 
         val pedalChanged = activeThrottle != lastSentThrottle || activeBrake != lastSentBrake || activeNitro != lastSentNitro

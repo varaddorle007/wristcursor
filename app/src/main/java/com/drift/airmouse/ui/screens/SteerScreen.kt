@@ -788,15 +788,19 @@ private fun WheelFace(
     }
 
     fun updatePedals(gas: Boolean, brk: Boolean, ntr: Boolean) {
-        touchThrottle = gas
-        touchBrake = brk
-        touchNitro = ntr
-        if (paused) return
-        act(Action.WheelPedals(gas, brk, ntr), Haptics.Kind.TICK)
+        val finalGas = if (brk) false else gas
+        val finalBrk = brk
+        if (touchThrottle != finalGas || touchBrake != finalBrk || touchNitro != ntr) {
+            touchThrottle = finalGas
+            touchBrake = finalBrk
+            touchNitro = ntr
+            if (paused) return
+            act(Action.WheelPedals(finalGas, finalBrk, ntr), Haptics.Kind.TICK)
+        }
     }
 
-    val isGas = !paused && (touchThrottle || (tuning.wheelTiltPedals && gyroGas))
     val isBrake = !paused && (touchBrake || (tuning.wheelTiltPedals && gyroBrake))
+    val isGas = !paused && !isBrake && (touchThrottle || (tuning.wheelTiltPedals && gyroGas))
 
     val colors = MaterialTheme.colorScheme
     val primary = colors.primary
@@ -1171,9 +1175,9 @@ private fun WheelFace(
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         buzz(Haptics.Kind.TICK)
-                        updatePedals(gas = touchThrottle, brk = true, ntr = touchNitro)
+                        updatePedals(gas = false, brk = true, ntr = touchNitro)
                         waitForUpOrCancellation()
-                        updatePedals(gas = touchThrottle, brk = false, ntr = touchNitro)
+                        updatePedals(gas = false, brk = false, ntr = touchNitro)
                     }
                 }
                 .padding(horizontal = 4.dp, vertical = 5.dp),
@@ -1238,9 +1242,9 @@ private fun WheelFace(
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         buzz(Haptics.Kind.TICK)
-                        updatePedals(gas = true, brk = touchBrake, ntr = touchNitro)
+                        updatePedals(gas = true, brk = false, ntr = touchNitro)
                         waitForUpOrCancellation()
-                        updatePedals(gas = false, brk = touchBrake, ntr = touchNitro)
+                        updatePedals(gas = false, brk = false, ntr = touchNitro)
                     }
                 }
                 .padding(horizontal = 4.dp, vertical = 5.dp),

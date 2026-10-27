@@ -120,13 +120,16 @@ class HidLink(
         val now = SystemClock.elapsedRealtimeNanos()
         val x = (steer * HidReports.MAX_DELTA).toInt().coerceIn(-HidReports.MAX_DELTA, HidReports.MAX_DELTA)
         val y = when {
-            throttle -> 32767
             brake -> -32767
+            throttle -> 32767
             else -> 0
         }
         var btn = 0
-        if (throttle) btn = btn or 0x01
-        if (brake) btn = btn or 0x02
+        if (brake) {
+            btn = btn or 0x02
+        } else if (throttle) {
+            btn = btn or 0x01
+        }
         if (nitro) btn = btn or 0x04
 
         // 1. Send Gamepad HID report (Report ID 4) rate-limited to 50 Hz (20ms gap) unless buttons changed
@@ -145,8 +148,8 @@ class HidLink(
             steer > 0.05f -> HidReports.KEY_RIGHT
             else -> 0
         }
-        val keyThrottle = if (throttle) 0x52 else 0 // Up Arrow
-        val keyBrake = if (brake) 0x51 else 0       // Down Arrow
+        val keyBrake = if (brake) 0x51 else 0
+        val keyThrottle = if (throttle && !brake) 0x52 else 0
         val keyNitro = if (nitro) 0x2C else 0       // Spacebar
 
         val targetKeys = intArrayOf(keySteer, keyThrottle, keyBrake, keyNitro, 0, 0)
