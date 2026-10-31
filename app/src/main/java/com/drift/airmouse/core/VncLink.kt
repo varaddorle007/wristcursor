@@ -1,6 +1,8 @@
 package com.drift.airmouse.core
 
 import android.net.Network
+import android.os.Handler
+import android.os.Looper
 import java.io.BufferedInputStream
 import java.io.DataInputStream
 import java.io.IOException
@@ -39,6 +41,7 @@ class VncLink private constructor(
     private val scale = (width / 1600f).coerceAtLeast(1f)
     private val pointer = ByteArray(6)
     private val keyMessage = ByteArray(8)
+    private val handler = Handler(Looper.myLooper() ?: Looper.getMainLooper())
 
     override fun move(dx: Int, dy: Int) {
         restX += dx * scale
@@ -54,7 +57,20 @@ class VncLink private constructor(
 
     override fun click(button: MouseButton) {
         press(button)
-        release(button)
+        handler.postDelayed({ release(button) }, 30L)
+    }
+
+    override fun doubleClick() {
+        press(MouseButton.LEFT)
+        handler.postDelayed({
+            release(MouseButton.LEFT)
+            handler.postDelayed({
+                press(MouseButton.LEFT)
+                handler.postDelayed({
+                    release(MouseButton.LEFT)
+                }, 30L)
+            }, 50L)
+        }, 30L)
     }
 
     override fun press(button: MouseButton) {

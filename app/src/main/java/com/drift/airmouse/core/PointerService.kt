@@ -132,7 +132,7 @@ object PointerBus {
     @Volatile
     var freezeUntilMs = 0L
 
-    fun freezeFor(ms: Long = 320L) {
+    fun freezeFor(ms: Long = 160L) {
         freezeUntilMs = SystemClock.uptimeMillis() + ms
     }
 
@@ -150,7 +150,7 @@ object PointerBus {
         touchQuietUntil = if (down) Long.MAX_VALUE else SystemClock.uptimeMillis() + TOUCH_QUIET_MS
     }
 
-    private const val TOUCH_QUIET_MS = 350L
+    private const val TOUCH_QUIET_MS = 200L
 
     @Volatile
     internal var service: PointerService? = null
@@ -542,6 +542,7 @@ class PointerService : Service(), SensorEventListener {
         pinch = PinchDetector(
             PinchDetector.thresholdFor(calibration?.pinchThreshold, next.pinchSensitivity),
             holdEnabled = next.pinchHold != PinchAction.NOTHING,
+            doubleEnabled = next.pinchTwice != PinchAction.NOTHING,
         )
         shake = ShakeDetector(next.shakeSensitivity)
         knock.reset()
@@ -894,7 +895,7 @@ class PointerService : Service(), SensorEventListener {
             when (action) {
                 Action.Click, Action.DoubleClick, Action.RightClick, Action.DragStart -> {
                     PointerBus.clickPulse.value++
-                    PointerBus.freezeFor(350L)
+                    PointerBus.freezeFor(160L)
                 }
                 else -> Unit
             }

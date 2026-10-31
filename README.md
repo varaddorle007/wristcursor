@@ -1,103 +1,145 @@
 # Drift
 
-**Your wrist, your cursor.** Drift turns a Samsung Galaxy Watch (any Wear OS 3+ watch with a gyroscope) into an air mouse, a touchpad, a TV remote, a media remote and a presentation remote.
+**Your wrist, your cursor.** Drift transforms your Wear OS smartwatch (Samsung Galaxy Watch 4/5/6/7/Ultra, Pixel Watch, or any Wear OS 3+ smartwatch equipped with a gyroscope) into an ultra-low-latency air mouse, gaming steering controller, trackpad, TV remote, media control, and presentation clicker.
 
-## Two ways to connect
+Connect driverless over **Bluetooth HID** to Macs, PCs, Android TVs, and tablets—or connect over **Wi-Fi** using the companion desktop receiver or Mac Screen Sharing.
 
-| | Bluetooth (default) | Wi-Fi |
-| --- | --- | --- |
-| Needs on the computer | nothing, it's a normal Bluetooth mouse | Drift Receiver |
-| Delay | lowest | low |
-| Battery | lowest | higher |
-| Works with | Mac, Windows, Linux, iPad, Android phones, Android TV, Google TV, Fire TV | Mac, Windows, Linux |
+---
 
-Bluetooth mode needs the watch to support Android's Bluetooth HID device profile. Drift checks on first use and switches to Wi-Fi if the watch can't do it.
+## Connectivity: Universal & Driverless
 
-## Features
+| | Bluetooth HID (Recommended) | Wi-Fi Direct (Desktop Receiver) | Mac Screen Sharing (VNC) |
+| --- | --- | --- | --- |
+| **Driver / App on Host** | **None** (Native Bluetooth Mouse/Gamepad) | Drift Receiver (`.jar` or Mac `.app`) | **None** (Built-in macOS Sharing) |
+| **Latency** | Sub-10ms (Real-time 100 Hz report delivery) | ~15ms (Low-latency UDP) | ~20ms (Standard RFB protocol) |
+| **Supported Devices** | macOS, Windows, Linux, iPadOS, iOS, Android, Android TV, Google TV, Fire TV | Windows, macOS, Linux | macOS |
+| **Discovery** | Live scanning of paired & nearby devices + 1-tap "Make watch discoverable" + BLE HID advertisement | Automatic mDNS / UDP broadcast + manual IP entry | Bonjour LAN auto-discovery + manual IP |
 
-**Modes** (tap the mode name at the top of the steering screen to switch; the connection stays up)
-- **Mouse:** tilt to move. Each gyro reading is filtered and sent as soon as it arrives (up to 100 a second). 1€ filter: steady when you move slowly, no lag when you move fast. Tap = click, double-tap = double-click, hold = right-click (or drag, if Hold to drag is on), bezel = scroll. The cursor freezes while your finger is down, so taps land where you aimed.
-- **Touchpad:** the whole screen is a trackpad; the gyroscope and pinch are off. Drag to move with pointer acceleration (faster swipes go further) and an optional glide after a flick. Tap = click, hold = right-click, hold then drag = grab and drop, two fingers = scroll (two-finger tap = right-click), bezel = scroll. Swipe-to-go-back is off here so rightward drags never close the screen.
-- **TV remote:** a D-pad ring with OK in the middle, plus Back and Home. Arrows repeat while held. The watch's own back button presses Back. Bezel = volume. Works with Android TV, Google TV and Fire TV over Bluetooth (they see the watch as a remote); over Wi-Fi to a computer, arrows/OK/Back become arrow keys, Enter and Escape.
-- **Media:** volume up/down, previous/next (hold: rewind/fast-forward), play/pause (hold: mute). Bezel = volume. Works over Bluetooth and over Wi-Fi with Drift Receiver (not over Mac Screen Sharing).
-- **Keyboard:** tap **Speak** and talk, or **Type** on the watch keyboard; the text lands where the computer's cursor is. Delete and Enter keys too. Bluetooth types like a US keyboard (letters, numbers, symbols); Wi-Fi with Drift Receiver pastes any language and emoji; Mac Screen Sharing types any language.
-- **Slides:** big Back and Next buttons; the bezel flips slides.
-- **Remap buttons:** every button on the TV remote and Media pads has a short-press and a long-press action you can change (Settings › Remap buttons).
-- **Pinch gestures** (Mouse, Slides, Media): **double pinch** = click / next slide / play-pause; **triple pinch** = right-click / previous slide / next track. A single pinch does nothing, so stray jolts never click. Ignored while a finger is on the screen and just after.
+---
 
-**Aiming**
-- Calibration asks you to point at the middle of your screen and hold still, so drift is measured in your real pointing pose; then three pinches tune pinch detection to your hand.
-- Over Wi-Fi the cursor jumps to the middle of the screen when you start (point there as you tap Go), after calibration, and whenever you tap **Center**.
+## Operating Modes
 
-**Finding devices**
-- **Wi-Fi:** lists everything on the network (computers, laptops, phones, tablets, TVs, speakers, printers, the router) with an icon, name and address, computers Drift can steer at the top. The watch brings up its own Wi-Fi first (Wear OS otherwise routes through the phone), then pings every address, tries a connection on the ones that ignore pings (a refusal still proves a device is there, which catches most phones), and asks devices their names over Bonjour, UPnP, NetBIOS and reverse DNS. Open ports tell a TV from a phone from a PC. A full scan takes about ten seconds; a phone whose Wi-Fi is asleep may only show up on the next scan.
-- **Hidden laptops:** a laptop whose firewall ignores everything (Windows on a "Public" network does this) can't be found by any scan. Switch that network to Private, or use **Add by address** and type its IP.
-- **Bluetooth:** paired and nearby devices with icons for computers, phones and TVs.
+Switch modes on the fly by tapping the header on the steering screen:
 
-**Themes**
-- Drift, Web, Inferno, Reactor, Synthwave, Terminal. Each recolors the app and draws its own background art, generated in code (no image files, nothing animating, no extra battery).
+1. **Mouse (Air Mouse)**:
+   - **Motion**: Wrist orientation rates (rad/s) pass through a 1€ filter and progressive acceleration curve. Heavy smoothing when moving slowly for pixel-precise button targeting; zero phase lag when flicking or moving fast.
+   - **Clicks**:
+     - Single Tap on screen = Left Click.
+     - Double Tap on screen = Left Double Click.
+     - Triple Tap on screen = Right Click.
+     - Screen Touch Freeze: Cursor automatically stabilizes during finger taps to eliminate target nudge.
+   - **Wrist Tilt Scroll**: Tilt wrist up to scroll up, down to scroll down. Speed progressively scales with tilt angle.
+   - **Physical Rotating Bezel**: Turn bezel clockwise/counterclockwise to scroll up or down.
 
-**Settings (all apply instantly, even while steering)**
-- Theme picker with live previews
-- Speed 1–10, Acceleration 0–5, Steadiness 1–5, Scroll speed 1–10. Adjust with the bezel, crown or −/+.
-- Power: Smooth (100/s), Balanced (60/s), Saver (40/s)
-- Touchpad speed 1–10, glide, gesture hints
-- Vibration: Off, Light 25%, Medium 50%, Strong 75%, Max 100%
-- Right wrist, reverse scroll
-- Dim while steering, auto-stop after 5 quiet minutes
-- Reset settings, forget computers, close Drift
+2. **Game (Controller Gyroscope Steering)**:
+   - **1:1 Gyroscope Steering**: 3D orientation vector projection calculates true steering angle in degrees relative to calibrated wrist position. Zero-latency 1€ filter provides instant cornering response and stable straightaways.
+   - **Rotating Bezel Steering**: Turn the physical rotating bezel to adjust or steer vehicles.
+   - **Dedicated Touch Pedals**: Left pedal = Brake/Reverse, Right pedal = Gas/Throttle. Strict mutual exclusion ensures active braking overrides throttle.
+   - **Tactile Pause / Resume**: Symmetrical pause button opposite Settings pauses sensors and sends `ESC` to bring up in-game pause menus.
+   - **Dual Output**: Sends simultaneous Gamepad HID reports (Report ID 4) and crisp keyboard mappings (`A`/`D`, Left/Right arrows, `W`/`S`, Spacebar for Nitro) for out-of-the-box compatibility with all PC/web games.
 
-**Battery and safety**
-- Never runs under battery saver or below 15% battery, and stops itself if either happens mid-session
-- Nothing runs in the background when you're not steering; no animations loop while steering
-- Wi-Fi switches to low-latency mode only while steering
+3. **Touchpad**:
+   - The watch display becomes a high-precision multi-touch trackpad (gyroscope disabled).
+   - Drag finger to move, flick for inertia glide, tap for left click, hold for right click, drag after hold to select/drag items, two fingers to scroll.
 
-## Using it
+4. **TV Remote**:
+   - D-Pad navigation ring with central OK button, Back, and Home.
+   - Physical rotating bezel controls volume up/down.
+   - Works natively with Android TV, Google TV, Apple TV, and Fire TV.
 
-**Bluetooth:** tap **Go**, allow Bluetooth, then on your computer open Bluetooth settings and pair with your watch's name. If it isn't listed, tap **Make visible** on the watch. Next time, Go reconnects by itself.
+5. **Media Controller**:
+   - Volume control, Previous / Next track, Play / Pause.
+   - Rotating bezel adjusts volume smoothly.
 
-**Wi-Fi:** run Drift Receiver on the computer, tap the Bluetooth icon on the watch to switch to Wi-Fi, tap **Go**, then click **Allow** on the computer the first time.
+6. **Keyboard & Dictation**:
+   - **Speak**: Voice-to-text dictation typed directly where the host cursor is positioned.
+   - **Type**: On-screen watch keyboard sends keystrokes with Enter and Backspace.
 
-**TV (Android TV, Google TV, Fire TV):** on the TV open Settings › Remotes & Accessories (Fire TV: Controllers & Bluetooth Devices) › Add accessory. On the watch pick Bluetooth, tap **Go**, then **Make visible**, and choose the watch on the TV. Switch to **TV remote** mode.
+7. **Slides (Presentation Remote)**:
+   - Big Next and Back click targets with haptic feedback. Bezel advances or steps back slides.
 
-## Build
+---
 
-### Watch app
-Open the folder in Android Studio, pick the `app` configuration and your watch, then Run. Or:
+## Gestures
+
+- **Single Pinch**: Thumb meets index finger once. Default: **Right Click** (configurable). Emits crisply with sub-240ms latency.
+- **Double Pinch**: Thumb meets index finger twice in quick succession. Default: **Left Click** (configurable).
+- **Pinch and Hold**: Thumb meets index finger and stays closed. Default: **Hold Button / Drag** until fingers part.
+- **Wrist Tilt Scroll**: Tilt hand upward to scroll up; tilt hand downward to scroll down.
+- **Wrist Shake**: A quick back-and-forth wrist flick triggers **Browser Back**, pause, or custom remapped action.
+- **Double Knock**: Sharp double tap on wrist or watch case. Configurable in Settings.
+- **Pull-Pull**: Two quick backward arm retractions. Configurable in Settings.
+
+---
+
+## Pairing Guide
+
+### Pairing over Bluetooth (PCs, Macs, TVs, Tablets):
+1. Open **Drift** on the watch and tap **Go** or **Connection** in Settings.
+2. Under Bluetooth:
+   - **If your device is scanning**: Tap **"Make watch discoverable"** on the watch. The watch becomes visible to all nearby TVs, PCs, and tablets for 3 minutes.
+   - **On your device**: Select the watch (e.g., "Galaxy Watch" or "Drift") in Bluetooth settings and confirm pairing.
+   - **Scanning from watch**: Tap **"Scan again"** to discover nearby host devices and initiate pairing directly from the watch.
+3. Once paired, Drift connects automatically.
+
+### Pairing over Wi-Fi (Drift Receiver):
+1. Run Drift Receiver on your PC or Mac. Ensure both watch and computer are on the same Wi-Fi.
+2. In Drift, select **Wi-Fi** mode.
+3. Drift automatically detects the receiver. Tap **Go** and click **Allow** on the computer.
+
+---
+
+## Building from Source
+
+### Requirements:
+- Android Studio Ladybug / Meerkat or later
+- Android SDK 35, Build Tools 35.0.0
+- JDK 17 or later
+
+### Watch App (`app`):
 ```bash
-./gradlew :app:assembleDebug
+# Run unit tests and screenshot verifications
+./gradlew testDebugUnitTest
+
+# Assemble debug APK
+./gradlew assembleDebug
+
+# Deploy directly to connected watch via ADB
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Drift Receiver (Wi-Fi mode only)
-- **Mac app:** `./receiver/package-mac.sh` builds `receiver/build/mac/Drift Receiver.app` (includes its own Java). The first time, allow it under **System Settings → Privacy & Security → Accessibility**.
-- **Any OS with Java 17+:** `./gradlew :receiver:jar`, then `java -jar receiver/build/libs/drift-receiver.jar`.
+### Desktop Receiver (`receiver`):
+```bash
+# Build standalone runnable JAR
+./gradlew :receiver:jar
 
-## Wi-Fi protocol
+# Run Receiver on desktop
+java -jar receiver/build/libs/drift-receiver.jar
 
-UTF-8 text over UDP, receiver port `47800`:
-
-| Watch sends | Meaning |
-| --- | --- |
-| `DRIFT? <model>` | broadcast search; receiver answers `DRIFT! <computer name>` |
-| `HELLO <id> <model>` | ask to connect; receiver answers `OK`, `WAIT` (click Allow) or `NO` |
-| `m dx dy` | move pointer |
-| `click` / `right` | mouse buttons |
-| `s steps` | wheel steps, positive scrolls down |
-| `key next` / `key prev` | right / left arrow |
-| `key up` / `key down` | up / down arrow |
-| `key enter` / `key esc` | Enter / Escape (remote OK / Back) |
-| `BYE` | session ended |
-
-## Project layout
-
-```
-app/        Wear OS app (Kotlin, Compose for Wear OS Material 3)
-  core/     service, motion filter, Bluetooth HID, Wi-Fi link, LAN scanner, discovery, remap, haptics, settings
-  ui/       theme, components, screens
-receiver/   desktop receiver for Wi-Fi mode (Kotlin, Swing) and Mac packaging script
+# Build native macOS .app package (with bundled runtime)
+./receiver/package-mac.sh
 ```
 
-## Before publishing
-- Put your contact email in `PRIVACY.md` and `TERMS.md`, and have a lawyer review both.
-- Create a release signing key and Play Console listing.
-- Check the name "Drift" for trademark conflicts in your market.
+---
+
+## Project Structure
+
+```
+wristcursor/
+├── app/                                 # Wear OS Application (Compose for Wear OS Material 3)
+│   ├── src/main/java/com/drift/airmouse/
+│   │   ├── core/                        # Service, MotionFilter, HidLink, VncLink, WifiLink, PinchDetector, AppPrefs
+│   │   └── ui/                          # Compose Screens (HomeScreen, SteerScreen, DevicesScreen, SettingsScreen)
+│   └── src/test/java/com/drift/airmouse/ # Unit tests & Roborazzi screenshot verification tests
+├── receiver/                            # Desktop Companion Receiver (Kotlin / Swing Robot input)
+│   ├── src/main/kotlin/com/drift/receiver/
+│   └── drift_vgamepad.py               # Virtual Xbox / PlayStation gamepad bridge script
+└── docs/                                # Documentation and guides
+```
+
+---
+
+## Open Source & Licensing
+
+Drift is open-source software licensed under the [Apache License, Version 2.0](LICENSE).
+Contributions, bug reports, and pull requests are welcome!

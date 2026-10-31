@@ -10,11 +10,17 @@ import android.bluetooth.BluetoothHidDeviceAppQosSettings
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.AdvertiseCallback
+import android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
+import android.os.ParcelUuid
 import android.os.SystemClock
+import android.util.Log
 import java.util.concurrent.Executor
 
 /**
@@ -43,6 +49,15 @@ class HidLink(
     private var closed = false
     private var reconnectTries = 0
     private var retrying: BluetoothDevice? = null
+    private var advertiser: BluetoothLeAdvertiser? = null
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            Log.d(TAG, "BLE HID advertisement started")
+        }
+        override fun onStartFailure(errorCode: Int) {
+            Log.w(TAG, "BLE HID advertisement failed: $errorCode")
+        }
+    }
 
     private var buttons = 0
     private var lastSentButtons = 0
@@ -98,6 +113,19 @@ class HidLink(
     override fun click(button: MouseButton) {
         press(button)
         handler.postDelayed({ release(button) }, PRESS_MS)
+    }
+
+    override fun doubleClick() {
+        press(MouseButton.LEFT)
+        handler.postDelayed({
+            release(MouseButton.LEFT)
+            handler.postDelayed({
+                press(MouseButton.LEFT)
+                handler.postDelayed({
+                    release(MouseButton.LEFT)
+                }, PRESS_MS)
+            }, DOUBLE_GAP_MS)
+        }, PRESS_MS)
     }
 
     override fun press(button: MouseButton) {
@@ -262,12 +290,39 @@ class HidLink(
         handler.removeCallbacks(connectTimeout)
         handler.removeCallbacks(flushRunnable)
         flushScheduled = false
+        stopBleAdvertising()
         hid?.let { device ->
             runCatching { device.unregisterApp() }
             adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, device)
         }
         hid = null
         host = null
+    }
+
+    private fun startBleAdvertising() {
+        if (host != null || closed) return
+        val leAdvertiser = runCatching { adapter?.bluetoothLeAdvertiser }.getOrNull() ?: return
+        advertiser = leAdvertiser
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(true)
+            .setTimeout(0)
+            .build()
+        val data = AdvertiseData.Builder()
+            .setIncludeDeviceName(true)
+            .addServiceUuid(ParcelUuid.fromString("00001812-0000-1000-8000-00805f9b34fb"))
+            .build()
+        runCatching {
+            leAdvertiser.startAdvertising(settings, data, advertiseCallback)
+        }
+    }
+
+    private fun stopBleAdvertising() {
+        runCatching {
+            advertiser?.stopAdvertising(advertiseCallback)
+        }
+        advertiser = null
     }
 
     private fun sendMouse(wheel: Int) {
@@ -367,6 +422,7 @@ class HidLink(
                 handler.postDelayed(connectTimeout, CONNECT_TIMEOUT_MS)
             } else {
                 events.onWaitingForHost(watchName())
+                startBleAdvertising()
             }
         }
 
@@ -375,6 +431,7 @@ class HidLink(
             when (state) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     handler.removeCallbacks(connectTimeout)
+                    stopBleAdvertising()
                     host = device
                     reconnectTries = 0
                     retrying = null
@@ -386,6 +443,7 @@ class HidLink(
                     val dropped = host ?: device.takeIf { it == retrying }
                     host = null
                     events.onWaitingForHost(watchName())
+                    startBleAdvertising()
                     // The computer slept or walked out of range: try to get it back by ourselves.
                     if (dropped != null) reconnect(dropped)
                 }
@@ -419,10 +477,12 @@ class HidLink(
     }
 
     companion object {
+        private const val TAG = "HidLink"
         const val NOT_SUPPORTED = "This watch can't be a Bluetooth mouse, so Drift switched to Wi-Fi"
         private const val PROXY_TIMEOUT_MS = 3_000L
         private const val CONNECT_TIMEOUT_MS = 6_000L
-        private const val PRESS_MS = 15L
+        private const val PRESS_MS = 25L
+        private const val DOUBLE_GAP_MS = 45L
         private const val TYPE_STEP_MS = 28L
         private const val MAX_TYPED = 2_000
         private const val MAX_RECONNECT_TRIES = 5

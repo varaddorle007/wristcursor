@@ -17,7 +17,11 @@ import kotlin.math.sqrt
  *
  * Every gesture reports exactly once.
  */
-class PinchDetector(private val threshold: Float, private val holdEnabled: Boolean = true) {
+class PinchDetector(
+    private val threshold: Float,
+    private val holdEnabled: Boolean = true,
+    private val doubleEnabled: Boolean = true,
+) {
 
     enum class Event { SINGLE, DOUBLE, HOLD_START, HOLD_END }
 
@@ -122,6 +126,10 @@ class PinchDetector(private val threshold: Float, private val holdEnabled: Boole
     }
 
     private fun tapped(nowNanos: Long): Event? {
+        if (!doubleEnabled) {
+            taps = 0
+            return Event.SINGLE
+        }
         taps++
         lastTapNanos = nowNanos
         if (taps < 2) return null
@@ -179,11 +187,11 @@ class PinchDetector(private val threshold: Float, private val holdEnabled: Boole
         private const val HOLD_RELEASE_RATIO = 0.55f
         /** Ignore the wrist ringing right after the fingers meet. */
         private const val RING_NANOS = 70_000_000L
-        private const val AFTER_RELEASE_NANOS = 120_000_000L
+        private const val AFTER_RELEASE_NANOS = 60_000_000L
         /** Fingers together longer than this is a hold. */
         private const val TAP_MAX_NANOS = 350_000_000L
-        /** Longest wait for a second pinch. */
-        private const val TAP_GAP_NANOS = 380_000_000L
+        /** Longest wait for a second pinch before dispatching a single pinch. */
+        private const val TAP_GAP_NANOS = 240_000_000L
         private const val MAX_HOLD_NANOS = 10_000_000_000L
     }
 }

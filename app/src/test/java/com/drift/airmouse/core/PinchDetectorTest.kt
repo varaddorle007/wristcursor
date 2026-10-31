@@ -121,4 +121,13 @@ class PinchDetectorTest {
         assertEquals(Event.HOLD_END, detector.cancel())
         assertFalse(detector.holding)
     }
+
+    @Test
+    fun whenDoubleDisabledSinglePinchIsImmediate() {
+        // When double pinch is disabled, single pinch returns immediately on release without waiting
+        val fastDetector = PinchDetector(PinchDetector.thresholdFor(null, 2), holdEnabled = true, doubleEnabled = false)
+        val events = feed(fastDetector, 45, tap(30))
+        assertEquals(listOf(Event.SINGLE), events)
+        assertFalse(fastDetector.waiting)
+    }
 }

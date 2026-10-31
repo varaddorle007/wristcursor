@@ -55,7 +55,7 @@ enum class RemoteKey(val label: String) {
 interface PointerLink {
     fun move(dx: Int, dy: Int)
     fun click(button: MouseButton)
-    fun doubleClick() { click(MouseButton.LEFT) }
+    fun doubleClick()
 
     /** Hold a button down (dragging) until [release]. */
     fun press(button: MouseButton)

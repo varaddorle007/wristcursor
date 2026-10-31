@@ -233,13 +233,25 @@ fun DevicesScreen(onBack: () -> Unit, onSteer: () -> Unit) {
                     }
                     BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> scanning = false
                     BluetoothDevice.ACTION_BOND_STATE_CHANGED -> {
+                        val bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
+                        val changedDevice = if (Build.VERSION.SDK_INT >= 33) {
+                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                        } else {
+                            @Suppress("DEPRECATION") intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                        }
                         paired = pairedDevices(context)
                         nearby = nearby.filter { n -> paired.none { it.address == n.address } }
-                        paired.firstOrNull { it.address == pairing }?.let {
-                            prefs.saveBluetoothHost(it)
+                        if (bondState == BluetoothDevice.BOND_BONDED) {
+                            val target = paired.firstOrNull { it.address == pairing || it.address == changedDevice?.address }
+                            if (target != null) {
+                                prefs.setTransport(Transport.BLUETOOTH)
+                                prefs.saveBluetoothHost(target)
+                                pairing = null
+                                connectNow()
+                            }
+                        } else if (bondState == BluetoothDevice.BOND_NONE && (changedDevice?.address == pairing || pairing != null)) {
                             pairing = null
-                            // Paired from the watch: go straight to steering it.
-                            connectNow()
+                            note = "Pairing cancelled or timed out"
                         }
                     }
                 }
@@ -334,6 +346,7 @@ fun DevicesScreen(onBack: () -> Unit, onSteer: () -> Unit) {
                                 // Already steering this one: just open the pad.
                                 status == Status.CONNECTED -> onSteer()
                                 else -> {
+                                    prefs.setTransport(Transport.BLUETOOTH)
                                     prefs.saveBluetoothHost(host)
                                     connectNow()
                                 }
@@ -354,6 +367,16 @@ fun DevicesScreen(onBack: () -> Unit, onSteer: () -> Unit) {
                     item {
                         Row(R.drawable.ic_bluetooth, "Scan again", "", Status.NONE) {
                             if (canScan) scanning = true else askBluetooth.launch(SCAN_PERMISSIONS)
+                        }
+                    }
+                }
+                item {
+                    Row(R.drawable.ic_device, "Make watch discoverable", "Visible to TVs, PCs & tablets for 3 min", Status.NONE) {
+                        runCatching {
+                            val name = makeDiscoverable(context)
+                            info = "Visible as \"$name\". Look for it in your TV, PC or tablet Bluetooth settings."
+                        }.onFailure {
+                            note = "Couldn't make watch discoverable: ${it.message}"
                         }
                     }
                 }
@@ -545,8 +568,22 @@ private fun foundDevice(intent: Intent): BluetoothHost? {
     } else {
         @Suppress("DEPRECATION") intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
     } ?: return null
-    val name = device.name?.takeIf { it.isNotBlank() } ?: return null // skip nameless beacons
+    val broadcastName = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)?.takeIf { it.isNotBlank() }
+    val deviceName = runCatching { device.name }.getOrNull()?.takeIf { it.isNotBlank() }
+    val name = broadcastName ?: deviceName ?: device.address ?: return null
     return BluetoothHost(device.address, name, kindOf(device))
+}
+
+@SuppressLint("MissingPermission")
+private fun makeDiscoverable(context: Context): String {
+    val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+    val name = runCatching { adapter?.name }.getOrNull() ?: "Drift"
+    val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+        putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 180)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    context.startActivity(intent)
+    return name
 }
 
 /** Asks the other device to pair with this watch; it shows a confirm prompt there. */
