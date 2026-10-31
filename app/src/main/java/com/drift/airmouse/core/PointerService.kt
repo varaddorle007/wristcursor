@@ -41,6 +41,7 @@ import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 sealed interface LinkState {
@@ -712,8 +713,8 @@ class PointerService : Service(), SensorEventListener {
         filter.step(yawRate = rz, pitchRate = ry, timestampNanos = event.timestamp)
         pendingX += filter.dx
         pendingY += filter.dy
-        val x = pendingX.toInt()
-        val y = pendingY.toInt()
+        val x = pendingX.roundToInt()
+        val y = pendingY.roundToInt()
         if (x == 0 && y == 0) {
             checkIdle(now)
             return
@@ -959,8 +960,8 @@ class PointerService : Service(), SensorEventListener {
                 is Action.Move -> {
                     pendingX += action.dx
                     pendingY += action.dy
-                    val x = pendingX.toInt()
-                    val y = pendingY.toInt()
+                    val x = pendingX.roundToInt()
+                    val y = pendingY.roundToInt()
                     if (x != 0 || y != 0) {
                         pendingX -= x
                         pendingY -= y

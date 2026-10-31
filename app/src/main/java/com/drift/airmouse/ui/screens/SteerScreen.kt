@@ -374,20 +374,20 @@ private fun MouseFace(
                             if (tapCount >= 3) {
                                 // Triple tap: Right Click!
                                 tapCount = 0
-                                PointerBus.freezeFor(350L)
+                                PointerBus.freezeFor(160L)
                                 act(Action.RightClick, Haptics.Kind.HEAVY)
                             } else {
                                 tapJob = scope.launch {
-                                    delay(260L)
+                                    delay(180L)
                                     val count = tapCount
                                     tapCount = 0
                                     if (count == 2) {
-                                        // Double tap: Left Click!
-                                        PointerBus.freezeFor(350L)
-                                        act(Action.Click, Haptics.Kind.CLICK)
+                                        // Double tap: Double Click!
+                                        PointerBus.freezeFor(160L)
+                                        act(Action.DoubleClick, Haptics.Kind.CLICK)
                                     } else if (count == 1) {
                                         // Single tap: Left Click!
-                                        PointerBus.freezeFor(350L)
+                                        PointerBus.freezeFor(160L)
                                         act(Action.Click, Haptics.Kind.CLICK)
                                     }
                                 }
@@ -401,7 +401,7 @@ private fun MouseFace(
                                 PointerBus.frozen = false
                                 buzz(Haptics.Kind.HEAVY)
                             } else {
-                                PointerBus.freezeFor(350L)
+                                PointerBus.freezeFor(160L)
                                 act(Action.RightClick, Haptics.Kind.HEAVY)
                             }
                         }
